@@ -31,6 +31,10 @@
   <!-- Fonts & Styles -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet">
+  
+  <!-- QR/Barcode Scanner Library (fallback for browsers without BarcodeDetector) -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  
   <style>
     * {
       margin: 0;
@@ -430,8 +434,10 @@
       background: rgba(0,0,0,0.8);
       display: flex;
       justify-content: center;
-      align-items: center;
+      align-items: flex-start;
       z-index: 1000;
+      overflow-y: auto;
+      padding: 20px 0;
     }
     .modal.hidden { display: none; }
     .modal-content {
@@ -440,6 +446,9 @@
       border-radius: 16px;
       width: 90%;
       max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      margin: auto;
     }
     .modal-content h3 {
       color: var(--text-primary);
@@ -1522,6 +1531,7 @@
       document.getElementById('detected-data').classList.add('hidden');
       document.getElementById('barcode-manual-input').value = '';
       detectedBarcodeData = null;
+      speak('Barcode scanner opened. Position the camera barcode within the frame.', true);
       startBarcodeScanner();
     }
     
@@ -1555,16 +1565,22 @@
         
         status.textContent = 'Scanning... Position barcode in frame';
         document.getElementById('barcode-status').style.color = 'var(--success)';
+        speak('Camera ready. Scanning for barcode.');
         
-        // Start barcode detection
+        // Check for BarcodeDetector API first
         if ('BarcodeDetector' in window) {
           barcodeDetector = new BarcodeDetector({
             formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8', 'data_matrix', 'codabar', 'itf']
           });
           detectBarcodes(video);
+        } else if (typeof jsQR !== 'undefined') {
+          // Use jsQR library as fallback
+          status.textContent = 'Scanning for QR codes...';
+          detectWithJsQR(video);
         } else {
           status.textContent = 'Auto-detection not supported - enter data manually below';
           document.getElementById('barcode-status').style.color = 'var(--warning)';
+          speak('Auto-detection not available. Please enter camera data manually.');
         }
         
       } catch (error) {
@@ -1574,6 +1590,40 @@
         scanLine.style.display = 'none';
         status.textContent = 'Camera not available - enter data manually';
         document.getElementById('barcode-status').style.color = 'var(--warning)';
+        speak('Camera not available. Please enter camera information manually.');
+      }
+    }
+    
+    // jsQR fallback scanner
+    function detectWithJsQR(video) {
+      if (!barcodeScanning) return;
+      
+      try {
+        // Create canvas for frame capture
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        
+        if (canvas.width > 0 && canvas.height > 0) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: 'dontInvert'
+          });
+          
+          if (code) {
+            onBarcodeDetected(code.data);
+            return;
+          }
+        }
+      } catch (e) {
+        console.log('jsQR error:', e);
+      }
+      
+      // Continue scanning
+      if (barcodeScanning) {
+        requestAnimationFrame(() => detectWithJsQR(video));
       }
     }
     
@@ -1585,6 +1635,46 @@
       }
     }
     
+    // Common handler for detected barcodes
+    function onBarcodeDetected(rawValue) {
+      console.log('Barcode detected:', rawValue);
+      
+      // Show detected data
+      detectedBarcodeData = rawValue;
+      document.getElementById('detected-data').classList.remove('hidden');
+      document.getElementById('detected-data-text').textContent = rawValue;
+      document.getElementById('barcode-manual-input').value = rawValue;
+      
+      // Update status
+      document.getElementById('barcode-status-text').textContent = 'Barcode detected! Click "Add Camera" to continue.';
+      document.getElementById('barcode-status').style.color = 'var(--success)';
+      
+      // Voice feedback
+      speak('Barcode detected successfully! Click Add Camera to continue.', true);
+      
+      // Play success sound
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 800;
+        gain.gain.value = 0.1;
+        osc.start();
+        setTimeout(() => { osc.frequency.value = 1000; }, 100);
+        setTimeout(() => { osc.stop(); }, 200);
+      } catch (e) {}
+      
+      // Vibrate if available
+      if (navigator.vibrate) {
+        navigator.vibrate(200);
+      }
+      
+      // Stop scanning after detection
+      barcodeScanning = false;
+    }
+    
     async function detectBarcodes(video) {
       if (!barcodeScanning || !barcodeDetector) return;
       
@@ -1592,39 +1682,8 @@
         const barcodes = await barcodeDetector.detect(video);
         
         if (barcodes.length > 0) {
-          const barcode = barcodes[0];
-          console.log('Barcode detected:', barcode.rawValue);
-          
-          // Show detected data
-          detectedBarcodeData = barcode.rawValue;
-          document.getElementById('detected-data').classList.remove('hidden');
-          document.getElementById('detected-data-text').textContent = barcode.rawValue;
-          document.getElementById('barcode-manual-input').value = barcode.rawValue;
-          
-          // Update status
-          document.getElementById('barcode-status-text').textContent = 'Barcode detected! Click "Add Camera" to continue.';
-          document.getElementById('barcode-status').style.color = 'var(--success)';
-          
-          // Play success sound
-          try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.frequency.value = 800;
-            gain.gain.value = 0.1;
-            osc.start();
-            setTimeout(() => { osc.frequency.value = 1000; }, 100);
-            setTimeout(() => { osc.stop(); }, 200);
-          } catch (e) {}
-          
-          // Vibrate if available
-          if (navigator.vibrate) {
-            navigator.vibrate(200);
-          }
-          
-          return; // Stop scanning after detection
+          onBarcodeDetected(barcodes[0].rawValue);
+          return;
         }
       } catch (e) {
         console.log('Detection error:', e);
@@ -1635,14 +1694,19 @@
         requestAnimationFrame(() => detectBarcodes(video));
       }
     }
+      }
+    }
     
     async function addBarcodeCamera() {
       const scanData = document.getElementById('barcode-manual-input').value.trim() || detectedBarcodeData;
       
       if (!scanData) {
+        speak('No barcode data detected. Please scan a barcode or enter data manually.');
         alert('No barcode data detected. Please scan a barcode or enter data manually.');
         return;
       }
+      
+      speak('Adding camera. Please wait.', true);
       
       try {
         document.getElementById('barcode-status-text').textContent = 'Adding camera...';
@@ -1657,6 +1721,7 @@
         const data = await res.json();
         
         if (data.code === 'SUCCESS') {
+          speak('Success! GZ-SONY MAKE.BELIEVE camera has been added to the dashboard.', true);
           addEvent('Camera added via barcode: ' + (data.data.camera.name || data.data.camera.id), 'recording');
           closeBarcodeScannerModal();
           fetchData();
@@ -1669,6 +1734,7 @@
         console.log('Add camera error:', error);
         document.getElementById('barcode-status-text').textContent = 'Error: ' + error.message;
         document.getElementById('barcode-status').style.color = 'var(--danger)';
+        speak('Error adding camera. ' + error.message);
         alert('Failed to add camera: ' + error.message);
       }
     }
