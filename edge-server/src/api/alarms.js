@@ -95,14 +95,10 @@ router.post('/trigger', (req, res) => {
   const { alarmController } = req.app.locals.modules;
   const { cameraId } = req.body;
   
-  if (!cameraId) {
-    return res.status(400).json({
-      code: 'ERROR',
-      message: 'cameraId is required'
-    });
-  }
+  // Use 'manual' as default cameraId for manual triggers
+  const triggerSource = cameraId || 'manual';
   
-  const triggered = alarmController.trigger(cameraId);
+  const triggered = alarmController.trigger(triggerSource);
   
   if (triggered) {
     res.json({

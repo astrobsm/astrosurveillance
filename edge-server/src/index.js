@@ -55,6 +55,11 @@ app.use(cors({
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Favicon fallback
+app.get('/favicon.ico', (req, res) => {
+  res.redirect('/favicon.svg');
+});
+
 // Request logging middleware
 app.use((req, res, next) => {
   Logger.info(`${req.method} ${req.path}`, { ip: req.ip });
