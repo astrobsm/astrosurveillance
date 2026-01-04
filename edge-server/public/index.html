@@ -853,15 +853,31 @@
         
         <div style="margin-bottom: 12px;">
           <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">WiFi Network Name (SSID) *</label>
-          <div style="display: flex; gap: 8px;">
-            <input type="text" id="wifi-ssid" placeholder="Your WiFi Network" style="flex: 1;">
-            <button class="action-btn" style="padding: 10px 16px;" onclick="scanWiFiNetworks()">
-              <i class="mdi mdi-wifi-sync"></i>
+          <input type="text" id="wifi-ssid" placeholder="Enter your WiFi network name" style="width: 100%; margin-bottom: 8px;">
+          
+          <!-- Quick Select Common Networks -->
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+            <button class="action-btn" style="padding: 6px 12px; font-size: 12px;" onclick="selectWiFiNetwork('Bonnesante_WiFi')">
+              Bonnesante_WiFi
             </button>
+            <button class="action-btn" style="padding: 6px 12px; font-size: 12px;" onclick="promptCustomSSID()">
+              <i class="mdi mdi-plus"></i> Other Network
+            </button>
+          </div>
+          
+          <div style="background: var(--background); padding: 12px; border-radius: 8px; margin-bottom: 8px;">
+            <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 8px;">
+              <i class="mdi mdi-information"></i> <strong>How to find your WiFi name:</strong>
+            </p>
+            <ul style="color: var(--text-secondary); font-size: 12px; margin-left: 16px; line-height: 1.6;">
+              <li>Check your WiFi router label</li>
+              <li>Look at your phone's WiFi settings</li>
+              <li>Ask your network administrator</li>
+            </ul>
           </div>
         </div>
         
-        <!-- Available Networks List -->
+        <!-- Available Networks List (fallback) -->
         <div id="wifi-networks-list" class="hidden" style="max-height: 150px; overflow-y: auto; background: var(--background); border-radius: 8px; margin-bottom: 12px;">
         </div>
         
@@ -1718,7 +1734,7 @@
       
       // Voice feedback for each step
       if (step === 2) {
-        speak('Step 2: WiFi Configuration. Please enter your WiFi network name and password, then click Configure WiFi.');
+        speak('Step 2: WiFi Configuration. Please type your WiFi network name in the text box, or tap a quick select button. Then enter your WiFi password and click Configure WiFi.');
       } else if (step === 3) {
         speak('Step 3: Setup Complete.');
       }
@@ -1834,6 +1850,17 @@
       document.getElementById('wifi-ssid').value = ssid;
       document.getElementById('wifi-networks-list').classList.add('hidden');
       speak('Selected network: ' + ssid + '. Please enter the WiFi password.');
+      // Focus on password field
+      document.getElementById('wifi-password').focus();
+    }
+    
+    function promptCustomSSID() {
+      const ssid = prompt('Enter your WiFi network name (SSID):');
+      if (ssid && ssid.trim()) {
+        document.getElementById('wifi-ssid').value = ssid.trim();
+        speak('Network name set to: ' + ssid.trim() + '. Please enter the WiFi password.');
+        document.getElementById('wifi-password').focus();
+      }
     }
     
     function toggleWiFiPassword() {
