@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ASTROSURVEILLANCE - Surveillance Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #1a1a2e;
+      --primary-light: #16213e;
+      --accent: #e94560;
+      --accent-light: #ff6b6b;
+      --background: #0f0f1a;
+      --surface: #1a1a2e;
+      --surface-light: #252542;
+      --text-primary: #ffffff;
+      --text-secondary: #b8b8d1;
+      --text-muted: #6c6c8a;
+      --success: #00d26a;
+      --warning: #ffc107;
+      --danger: #ff4757;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--background);
+      min-height: 100vh;
+      color: var(--text-primary);
+    }
+
+    /* Header */
+    .header {
+      background: var(--surface);
+      padding: 20px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--surface-light);
+    }
+
+    .header-title {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .header-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .connection-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface-light);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      color: var(--success);
+    }
+
+    .connection-dot {
+      width: 10px;
+      height: 10px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Main Container */
+    .main-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* Alarm Card */
+    .alarm-card {
+      background: linear-gradient(135deg, var(--danger) 0%, #c0392b 100%);
+      border-radius: 20px;
+      padding: 32px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .alarm-card.safe {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--surface-light) 100%);
+    }
+
+    @keyframes flash {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    @keyframes borderPulse {
+      0%, 100% { box-shadow: inset 0 0 20px rgba(255, 71, 87, 0.3); }
+      50% { box-shadow: inset 0 0 40px rgba(255, 71, 87, 0.6); }
+    }
+
+    .alarm-card.flashing {
+      animation: flash 0.5s infinite, borderPulse 0.5s infinite;
+    }
+
+    .alarm-info {
+      flex: 1;
+    }
+
+    .alarm-status {
+      font-size: 14px;
+      color: rgba(255,255,255,0.8);
+      margin-bottom: 4px;
+    }
+
+    .alarm-title {
+      font-size: 32px;
+      font-weight: 700;
+      color: white;
+    }
+
+    .alarm-icon {
+      font-size: 64px;
+      color: rgba(255,255,255,0.3);
+      margin: 0 32px;
+    }
+
+    .alarm-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .alarm-btn {
+      padding: 14px 28px;
+      border-radius: 12px;
+      border: none;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .alarm-btn.trigger {
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
+
+    .alarm-btn.stop {
+      background: white;
+      color: var(--danger);
+    }
+
+    .alarm-btn:hover {
+      transform: scale(1.05);
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 768px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 24px;
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 16px;
+    }
+
+    .stat-icon.cameras { background: rgba(233, 69, 96, 0.2); color: var(--accent); }
+    .stat-icon.recordings { background: rgba(0, 210, 106, 0.2); color: var(--success); }
+    .stat-icon.storage { background: rgba(255, 193, 7, 0.2); color: var(--warning); }
+    .stat-icon.uptime { background: rgba(108, 108, 138, 0.2); color: var(--text-secondary); }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .stat-label {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Two Column Layout */
+    .two-column {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 1024px) {
+      .two-column {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Section */
+    .section {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 24px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .section-link {
+      font-size: 14px;
+      color: var(--accent);
+      cursor: pointer;
+    }
+
+    /* Camera List */
+    .camera-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .camera-card {
+      background: var(--surface-light);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .camera-preview {
+      width: 80px;
+      height: 60px;
+      background: var(--background);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 24px;
+    }
+
+    .camera-info {
+      flex: 1;
+    }
+
+    .camera-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .camera-location {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .camera-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+
+    .camera-status.online { color: var(--success); }
+    .camera-status.recording { color: var(--accent); }
+
+    .camera-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* Events List */
+    .events-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .event-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--surface-light);
+      border-radius: 12px;
+    }
+
+    .event-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .event-icon.motion { background: rgba(233, 69, 96, 0.2); color: var(--accent); }
+    .event-icon.recording { background: rgba(0, 210, 106, 0.2); color: var(--success); }
+
+    .event-info {
+      flex: 1;
+    }
+
+    .event-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .event-time {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Action Buttons */
+    .action-buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 14px;
+      border-radius: 10px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--surface-light);
+      color: var(--text-secondary);
+      transition: all 0.2s;
+    }
+
+    .action-btn:hover {
+      background: var(--accent);
+      color: white;
+    }
+
+    /* Modal */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal.hidden { display: none; }
+    .modal-content {
+      background: var(--surface);
+      padding: 32px;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 500px;
+    }
+    .modal-content h3 {
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      font-size: 20px;
+    }
+    .modal-content p {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .modal-content input {
+      width: 100%;
+      padding: 14px;
+      border-radius: 8px;
+      border: 1px solid var(--surface-light);
+      background: var(--background);
+      color: var(--text-primary);
+      font-size: 16px;
+      margin-bottom: 16px;
+    }
+    .modal-buttons {
+      display: flex;
+      gap: 12px;
+    }
+    .modal-buttons button {
+      flex: 1;
+      padding: 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .modal-buttons button:first-child {
+      background: var(--surface-light);
+      color: var(--text-secondary);
+    }
+    .modal-buttons button.primary {
+      background: var(--accent);
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="header-title">ASTROSURVEILLANCE</div>
+      <div class="header-subtitle">Bonnesante Medicals - Edge Server</div>
+    </div>
+    <div class="connection-badge" id="connection-badge">
+      <div class="connection-dot"></div>
+      Connected
+    </div>
+  </div>
+
+  <div class="main-container">
+    <!-- Alarm Card -->
+    <div class="alarm-card safe" id="alarm-card">
+      <div class="alarm-info">
+        <div class="alarm-status">System Status</div>
+        <div class="alarm-title" id="alarm-title">All Clear</div>
+      </div>
+      <i class="mdi mdi-shield-check alarm-icon" id="alarm-icon"></i>
+      <div class="alarm-actions">
+        <button class="alarm-btn trigger" onclick="triggerAlarm()">
+          <i class="mdi mdi-alarm-light"></i>
+          Test Alarm
+        </button>
+        <button class="alarm-btn stop" onclick="stopAlarm()">
+          <i class="mdi mdi-stop"></i>
+          Stop
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon cameras">
+          <i class="mdi mdi-cctv"></i>
+        </div>
+        <div class="stat-value" id="stat-cameras">0</div>
+        <div class="stat-label">Cameras Online</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon recordings">
+          <i class="mdi mdi-filmstrip"></i>
+        </div>
+        <div class="stat-value" id="stat-recordings">0</div>
+        <div class="stat-label">Recordings</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon storage">
+          <i class="mdi mdi-harddisk"></i>
+        </div>
+        <div class="stat-value" id="stat-storage">0%</div>
+        <div class="stat-label">Storage Used</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon uptime">
+          <i class="mdi mdi-clock-outline"></i>
+        </div>
+        <div class="stat-value" id="stat-uptime">0m</div>
+        <div class="stat-label">Uptime</div>
+      </div>
+    </div>
+
+    <!-- Two Column Layout -->
+    <div class="two-column">
+      <!-- Cameras Section -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Cameras</div>
+          <span class="section-link" id="cameras-count">0 cameras</span>
+        </div>
+        <div class="camera-list" id="camera-list">
+          <div class="camera-card">
+            <div class="camera-preview">
+              <i class="mdi mdi-cctv"></i>
+            </div>
+            <div class="camera-info">
+              <div class="camera-name">No Cameras</div>
+              <div class="camera-location">Use discovery or add manually</div>
+              <div class="camera-status">
+                <div class="camera-status-dot"></div>
+                Waiting...
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="action-buttons">
+          <button class="action-btn" onclick="openScanModal()">
+            <i class="mdi mdi-qrcode-scan"></i> Scan Barcode
+          </button>
+          <button class="action-btn" onclick="discoverCameras()">
+            <i class="mdi mdi-magnify"></i> Discover
+          </button>
+        </div>
+      </div>
+
+      <!-- Events Section -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Recent Events</div>
+          <span class="section-link">View All</span>
+        </div>
+        <div class="events-list" id="events-list">
+          <div class="event-item">
+            <div class="event-icon recording">
+              <i class="mdi mdi-check"></i>
+            </div>
+            <div class="event-info">
+              <div class="event-title">System Started</div>
+              <div class="event-time">Just now</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scan Modal -->
+  <div id="scan-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3><i class="mdi mdi-qrcode-scan"></i> Add Camera</h3>
+      <p>Enter camera details or paste barcode data.</p>
+      
+      <div style="margin-bottom: 12px;">
+        <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Camera IP Address *</label>
+        <input type="text" id="cam-ip" placeholder="192.168.1.100">
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div style="margin-bottom: 12px;">
+          <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Username</label>
+          <input type="text" id="cam-user" placeholder="admin">
+        </div>
+        <div style="margin-bottom: 12px;">
+          <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Password</label>
+          <input type="password" id="cam-pass" placeholder="password">
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div style="margin-bottom: 12px;">
+          <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Camera Name</label>
+          <input type="text" id="cam-name" placeholder="Factory Entrance">
+        </div>
+        <div style="margin-bottom: 12px;">
+          <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Location</label>
+          <input type="text" id="cam-location" placeholder="Building A">
+        </div>
+      </div>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Or paste barcode data:</label>
+        <input type="text" id="scan-data-input" placeholder='{"ip":"192.168.1.100","username":"admin"...}'>
+      </div>
+      
+      <div class="modal-buttons">
+        <button onclick="closeScanModal()">Cancel</button>
+        <button class="primary" onclick="addScannedCamera()">
+          <i class="mdi mdi-plus"></i> Add Camera
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // API base - use relative path for same-origin
+    const API_BASE = '/api';
+    let ws;
+
+    // Fetch data from API
+    async function fetchData() {
+      try {
+        // System info
+        const sysRes = await fetch(API_BASE + '/system/info');
+        const sysData = await sysRes.json();
+        
+        if (sysData.uptime) {
+          const hours = Math.floor(sysData.uptime / 3600);
+          const mins = Math.floor((sysData.uptime % 3600) / 60);
+          const uptimeStr = hours > 0 ? hours + 'h ' + mins + 'm' : mins + 'm';
+          document.getElementById('stat-uptime').textContent = uptimeStr;
+        }
+        
+        // Cameras
+        const camRes = await fetch(API_BASE + '/cameras');
+        const cameras = await camRes.json();
+        document.getElementById('stat-cameras').textContent = cameras.length || 0;
+        document.getElementById('cameras-count').textContent = cameras.length + ' cameras';
+        
+        if (cameras.length > 0) {
+          const cameraList = document.getElementById('camera-list');
+          cameraList.innerHTML = cameras.map(cam => `
+            <div class="camera-card">
+              <div class="camera-preview">
+                <i class="mdi mdi-cctv"></i>
+              </div>
+              <div class="camera-info">
+                <div class="camera-name">${cam.name || cam.id}</div>
+                <div class="camera-location">${cam.location || cam.ip || 'Unknown'}</div>
+                <div class="camera-status ${cam.status === 'recording' ? 'recording' : 'online'}">
+                  <div class="camera-status-dot"></div>
+                  ${cam.status || 'Online'}
+                </div>
+              </div>
+            </div>
+          `).join('');
+        }
+        
+        // Recordings
+        const recRes = await fetch(API_BASE + '/recordings');
+        const recordings = await recRes.json();
+        document.getElementById('stat-recordings').textContent = recordings.length || 0;
+        
+        // Storage
+        const storRes = await fetch(API_BASE + '/storage/status');
+        const storage = await storRes.json();
+        const usagePercent = storage.usagePercent ? storage.usagePercent.toFixed(1) + '%' : '0%';
+        document.getElementById('stat-storage').textContent = usagePercent;
+        
+        // Alarm
+        const alarmRes = await fetch(API_BASE + '/alarm/status');
+        const alarm = await alarmRes.json();
+        updateAlarmUI(alarm.isActive);
+        
+      } catch (error) {
+        console.log('API fetch error:', error);
+      }
+    }
+
+    function updateAlarmUI(isActive) {
+      const card = document.getElementById('alarm-card');
+      const title = document.getElementById('alarm-title');
+      const icon = document.getElementById('alarm-icon');
+      
+      if (isActive) {
+        card.classList.remove('safe');
+        card.classList.add('flashing');
+        title.textContent = '🚨 ALARM ACTIVE!';
+        icon.className = 'mdi mdi-alarm-light alarm-icon';
+      } else {
+        card.classList.add('safe');
+        card.classList.remove('flashing');
+        title.textContent = 'All Clear';
+        icon.className = 'mdi mdi-shield-check alarm-icon';
+      }
+    }
+
+    // Audio context for alarm sound
+    let audioContext = null;
+    let alarmOscillator = null;
+    let alarmGain = null;
+    let alarmInterval = null;
+
+    function initAudio() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      return audioContext;
+    }
+
+    function playAlarmSound() {
+      try {
+        const ctx = initAudio();
+        if (ctx.state === 'suspended') {
+          ctx.resume();
+        }
+        
+        stopAlarmSound();
+        
+        alarmOscillator = ctx.createOscillator();
+        alarmGain = ctx.createGain();
+        
+        alarmOscillator.connect(alarmGain);
+        alarmGain.connect(ctx.destination);
+        
+        alarmOscillator.type = 'sawtooth';
+        alarmGain.gain.value = 0.3;
+        
+        alarmOscillator.start();
+        
+        let freq = 800;
+        let rising = true;
+        alarmInterval = setInterval(() => {
+          if (rising) {
+            freq += 50;
+            if (freq >= 1200) rising = false;
+          } else {
+            freq -= 50;
+            if (freq <= 600) rising = true;
+          }
+          if (alarmOscillator) {
+            alarmOscillator.frequency.setValueAtTime(freq, ctx.currentTime);
+          }
+        }, 50);
+        
+        setTimeout(() => {
+          stopAlarmSound();
+          updateAlarmUI(false);
+        }, 10000);
+        
+      } catch (e) {
+        console.log('Audio error:', e);
+      }
+    }
+
+    function stopAlarmSound() {
+      if (alarmInterval) {
+        clearInterval(alarmInterval);
+        alarmInterval = null;
+      }
+      if (alarmOscillator) {
+        try {
+          alarmOscillator.stop();
+          alarmOscillator.disconnect();
+        } catch (e) {}
+        alarmOscillator = null;
+      }
+      if (alarmGain) {
+        try {
+          alarmGain.disconnect();
+        } catch (e) {}
+        alarmGain = null;
+      }
+    }
+
+    async function triggerAlarm() {
+      try {
+        await fetch(API_BASE + '/alarm/trigger', { method: 'POST' });
+        updateAlarmUI(true);
+        playAlarmSound();
+        addEvent('Alarm triggered manually', 'motion');
+      } catch (e) {
+        console.log('Alarm trigger error:', e);
+        updateAlarmUI(true);
+        playAlarmSound();
+        addEvent('Alarm triggered (local)', 'motion');
+      }
+    }
+
+    async function stopAlarm() {
+      try {
+        await fetch(API_BASE + '/alarm/stop', { method: 'POST' });
+        updateAlarmUI(false);
+        stopAlarmSound();
+        addEvent('Alarm stopped', 'recording');
+      } catch (e) {
+        console.log('Alarm stop error:', e);
+        updateAlarmUI(false);
+        stopAlarmSound();
+        addEvent('Alarm stopped (local)', 'recording');
+      }
+    }
+
+    async function discoverCameras() {
+      try {
+        addEvent('Camera discovery started', 'motion');
+        const res = await fetch(API_BASE + '/cameras/discover', { method: 'POST' });
+        const data = await res.json();
+        addEvent('Found ' + (data.count || 0) + ' cameras', 'recording');
+        fetchData();
+      } catch (e) {
+        console.log('Discovery error:', e);
+      }
+    }
+
+    function addEvent(title, type) {
+      const list = document.getElementById('events-list');
+      const html = `
+        <div class="event-item">
+          <div class="event-icon ${type}">
+            <i class="mdi mdi-${type === 'motion' ? 'run' : 'check'}"></i>
+          </div>
+          <div class="event-info">
+            <div class="event-title">${title}</div>
+            <div class="event-time">Just now</div>
+          </div>
+        </div>
+      `;
+      list.insertAdjacentHTML('afterbegin', html);
+    }
+
+    // WebSocket connection
+    function connectWebSocket() {
+      try {
+        const wsUrl = window.location.origin.replace('http', 'ws') + '/ws';
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = () => {
+          console.log('WebSocket connected');
+          addEvent('Connected to server', 'recording');
+          document.getElementById('connection-badge').innerHTML = 
+            '<div class="connection-dot"></div> Connected';
+          document.getElementById('connection-badge').style.color = 'var(--success)';
+        };
+        
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          console.log('WS message:', data);
+          
+          if (data.type === 'MOTION_DETECTED') {
+            addEvent('Motion detected on ' + data.data.cameraId, 'motion');
+            updateAlarmUI(true);
+            playAlarmSound();
+          } else if (data.type === 'RECORDING_STARTED') {
+            addEvent('Recording started on ' + data.data.cameraId, 'motion');
+          } else if (data.type === 'RECORDING_COMPLETE') {
+            addEvent('Recording saved: ' + data.data.filename, 'recording');
+            fetchData();
+          } else if (data.type === 'ALARM_STOPPED') {
+            updateAlarmUI(false);
+            stopAlarmSound();
+          }
+        };
+        
+        ws.onclose = () => {
+          console.log('WebSocket disconnected');
+          document.getElementById('connection-badge').innerHTML = 
+            '<div class="connection-dot" style="background:var(--warning)"></div> Reconnecting...';
+          document.getElementById('connection-badge').style.color = 'var(--warning)';
+          setTimeout(connectWebSocket, 3000);
+        };
+        
+        ws.onerror = () => {
+          document.getElementById('connection-badge').innerHTML = 
+            '<div class="connection-dot" style="background:var(--danger)"></div> Offline';
+          document.getElementById('connection-badge').style.color = 'var(--danger)';
+        };
+      } catch (e) {
+        console.log('WebSocket error:', e);
+      }
+    }
+
+    // Camera Scan Modal
+    function openScanModal() {
+      document.getElementById('scan-modal').classList.remove('hidden');
+    }
+    
+    function closeScanModal() {
+      document.getElementById('scan-modal').classList.add('hidden');
+      document.getElementById('scan-data-input').value = '';
+      document.getElementById('cam-ip').value = '';
+      document.getElementById('cam-user').value = '';
+      document.getElementById('cam-pass').value = '';
+      document.getElementById('cam-name').value = '';
+      document.getElementById('cam-location').value = '';
+    }
+    
+    async function addScannedCamera() {
+      const scanData = document.getElementById('scan-data-input').value.trim();
+      const camIp = document.getElementById('cam-ip').value.trim();
+      const camUser = document.getElementById('cam-user').value.trim();
+      const camPass = document.getElementById('cam-pass').value.trim();
+      const camName = document.getElementById('cam-name').value.trim();
+      const camLocation = document.getElementById('cam-location').value.trim();
+      
+      let payload;
+      
+      if (scanData) {
+        payload = { scanData: scanData };
+      } else if (camIp) {
+        payload = {
+          scanData: JSON.stringify({
+            ip: camIp,
+            username: camUser || 'admin',
+            password: camPass || 'admin',
+            name: camName || 'Camera ' + camIp,
+            location: camLocation || 'Unknown'
+          })
+        };
+      } else {
+        alert('Please enter camera IP address');
+        return;
+      }
+      
+      try {
+        const res = await fetch(API_BASE + '/cameras/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        const data = await res.json();
+        
+        if (data.code === 'SUCCESS') {
+          addEvent('Camera added: ' + (data.data.camera.name || data.data.camera.id), 'recording');
+          closeScanModal();
+          fetchData();
+          alert('Camera added successfully!');
+        } else {
+          throw new Error(data.message || 'Failed to add camera');
+        }
+        
+      } catch (error) {
+        console.log('Add camera error:', error);
+        alert('Failed to add camera: ' + error.message);
+      }
+    }
+
+    // Initialize
+    fetchData();
+    connectWebSocket();
+    setInterval(fetchData, 10000);
+  </script>
+</body>
+</html>

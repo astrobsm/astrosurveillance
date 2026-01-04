@@ -174,6 +174,7 @@ storageManager.on('storageWarning', (usage) => {
 app.use('/api/cameras', cameraRoutes);
 app.use('/api/recordings', recordingRoutes);
 app.use('/api/alarms', alarmRoutes);
+app.use('/api/alarm', alarmRoutes);  // Also mount at /api/alarm for client compatibility
 app.use('/api/storage', storageRoutes);
 app.use('/api/system', systemRoutes);
 
@@ -185,6 +186,11 @@ app.get('/api/health', (req, res) => {
     uptime: process.uptime(),
     timestamp: new Date().toISOString()
   });
+});
+
+// Serve the main web interface for root and non-API routes
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
 // Error handling middleware
