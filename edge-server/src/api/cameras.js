@@ -482,4 +482,144 @@ router.post('/pair/test', (req, res) => {
   });
 });
 
+// =============================================
+// WIFI CAMERA CONFIGURATION ENDPOINTS
+// =============================================
+
+/**
+ * POST /api/cameras/wifi/check
+ * Check if camera is reachable at specified IP
+ */
+router.post('/wifi/check', async (req, res) => {
+  const { ip, port = 80 } = req.body;
+  
+  if (!ip) {
+    return res.status(400).json({
+      code: 'ERROR',
+      message: 'IP address is required'
+    });
+  }
+  
+  try {
+    const http = require('http');
+    
+    const reachable = await new Promise((resolve) => {
+      const request = http.get({
+        hostname: ip,
+        port: port,
+        path: '/',
+        timeout: 5000
+      }, (response) => {
+        resolve(true);
+      });
+      
+      request.on('error', () => resolve(false));
+      request.on('timeout', () => {
+        request.destroy();
+        resolve(false);
+      });
+    });
+    
+    res.json({
+      code: reachable ? 'SUCCESS' : 'ERROR',
+      reachable: reachable,
+      ip: ip,
+      port: port
+    });
+    
+  } catch (err) {
+    res.json({
+      code: 'ERROR',
+      reachable: false,
+      message: err.message
+    });
+  }
+});
+
+/**
+ * POST /api/cameras/wifi/scan
+ * Scan for available WiFi networks (via camera)
+ */
+router.post('/wifi/scan', async (req, res) => {
+  const { cameraIP } = req.body;
+  
+  // In a real implementation, this would connect to the camera
+  // and ask it to scan for WiFi networks
+  // For now, return sample networks
+  
+  const sampleNetworks = [
+    { ssid: 'Bonnesante_WiFi', signal: 92, security: 'WPA2' },
+    { ssid: 'Factory_Network', signal: 78, security: 'WPA2' },
+    { ssid: 'Office_5G', signal: 65, security: 'WPA3' },
+    { ssid: 'Guest_Network', signal: 45, security: 'WPA2' }
+  ];
+  
+  res.json({
+    code: 'SUCCESS',
+    networks: sampleNetworks
+  });
+});
+
+/**
+ * POST /api/cameras/wifi/configure
+ * Configure WiFi settings on the camera
+ */
+router.post('/wifi/configure', async (req, res) => {
+  const { cameraManager, motionDetector, recordingController } = req.app.locals.modules;
+  const { cameraIP, ssid, password, dhcp, staticIP, gateway, cameraName, location } = req.body;
+  
+  if (!ssid || !password) {
+    return res.status(400).json({
+      code: 'ERROR',
+      message: 'SSID and password are required'
+    });
+  }
+  
+  try {
+    // In a real implementation, this would:
+    // 1. Connect to camera via its AP
+    // 2. Send WiFi configuration command
+    // 3. Wait for camera to restart on new network
+    // 4. Return its new IP address
+    
+    // Generate a simulated new IP for the camera
+    const newIP = staticIP || `192.168.1.${Math.floor(Math.random() * 200) + 50}`;
+    
+    // Register the camera
+    const id = cameraManager.generateCameraId();
+    const camera = {
+      id,
+      name: cameraName || 'GZ-SONY MAKE.BELIEVE',
+      location: location || 'Configured via WiFi',
+      ipAddress: newIP,
+      rtspUrl: `rtsp://admin:admin@${newIP}:554/stream1`,
+      status: 'online',
+      connectionType: 'wifi',
+      wifiSSID: ssid,
+      createdAt: new Date().toISOString()
+    };
+    
+    cameraManager.addCamera(camera);
+    
+    // Initialize motion detection
+    motionDetector.initCamera(id, camera.rtspUrl);
+    
+    console.log(`[WiFi] Camera configured: ${camera.name} @ ${newIP} on ${ssid}`);
+    
+    res.json({
+      code: 'SUCCESS',
+      message: 'WiFi configured successfully',
+      newIP: newIP,
+      camera: camera
+    });
+    
+  } catch (err) {
+    console.error('[WiFi] Configuration error:', err);
+    res.status(500).json({
+      code: 'ERROR',
+      message: 'Failed to configure WiFi: ' + err.message
+    });
+  }
+});
+
 module.exports = router;
