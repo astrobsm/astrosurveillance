@@ -565,7 +565,7 @@ router.post('/wifi/scan', async (req, res) => {
  * Configure WiFi settings on the camera
  */
 router.post('/wifi/configure', async (req, res) => {
-  const { cameraManager, motionDetector, recordingController } = req.app.locals.modules;
+  const { cameraManager, motionDetector } = req.app.locals.modules;
   const { cameraIP, ssid, password, dhcp, staticIP, gateway, cameraName, location } = req.body;
   
   if (!ssid || !password) {
@@ -585,24 +585,20 @@ router.post('/wifi/configure', async (req, res) => {
     // Generate a simulated new IP for the camera
     const newIP = staticIP || `192.168.1.${Math.floor(Math.random() * 200) + 50}`;
     
-    // Register the camera
-    const id = cameraManager.generateCameraId();
-    const camera = {
-      id,
+    // Register the camera using the correct method
+    const camera = cameraManager.registerCamera({
       name: cameraName || 'GZ-SONY MAKE.BELIEVE',
       location: location || 'Configured via WiFi',
       ipAddress: newIP,
       rtspUrl: `rtsp://admin:admin@${newIP}:554/stream1`,
-      status: 'online',
       connectionType: 'wifi',
-      wifiSSID: ssid,
-      createdAt: new Date().toISOString()
-    };
+      wifiSSID: ssid
+    });
     
-    cameraManager.addCamera(camera);
-    
-    // Initialize motion detection
-    motionDetector.initCamera(id, camera.rtspUrl);
+    // Initialize motion detection if camera was registered
+    if (camera && camera.id) {
+      motionDetector.initCamera(camera.id, camera.rtspUrl);
+    }
     
     console.log(`[WiFi] Camera configured: ${camera.name} @ ${newIP} on ${ssid}`);
     
