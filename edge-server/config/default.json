@@ -3,6 +3,15 @@
     "port": 3080,
     "host": "0.0.0.0"
   },
+  "database": {
+    "host": "",
+    "port": 5432,
+    "database": "astrosurveillance",
+    "user": "postgres",
+    "password": "",
+    "ssl": false,
+    "enabled": false
+  },
   "recording": {
     "durationSeconds": 60,
     "resetDelaySeconds": 3,

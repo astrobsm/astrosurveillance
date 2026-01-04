@@ -7,12 +7,13 @@
 const express = require('express');
 const router = express.Router();
 const os = require('os');
+const db = require('../database');
 
 /**
  * GET /api/system/info
  * Get system information
  */
-router.get('/info', (req, res) => {
+router.get('/info', async (req, res) => {
   const { config } = req.app.locals.modules;
   
   // Get network interfaces for discovering server IP
@@ -30,6 +31,17 @@ router.get('/info', (req, res) => {
     }
   }
   
+  // Check database status
+  let dbStatus = { connected: false };
+  if (db.isConnected) {
+    try {
+      dbStatus = await db.healthCheck();
+      dbStatus.connected = true;
+    } catch (e) {
+      dbStatus = { connected: false, error: e.message };
+    }
+  }
+  
   res.json({
     code: 'SUCCESS',
     data: {
@@ -40,6 +52,7 @@ router.get('/info', (req, res) => {
       uptime: process.uptime(),
       serverPort: config.server.port,
       networkAddresses: addresses,
+      database: dbStatus,
       timestamp: new Date().toISOString()
     }
   });

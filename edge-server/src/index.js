@@ -15,6 +15,9 @@ const fs = require('fs');
 // Load configuration
 const config = require('../config/default.json');
 
+// Import database
+const db = require('./database');
+
 // Import core modules
 const CameraManager = require('./modules/CameraManager');
 const RecordingController = require('./modules/RecordingController');
@@ -73,7 +76,8 @@ app.locals.modules = {
   motionDetector,
   recordingController,
   config,
-  wss
+  wss,
+  db
 };
 
 // WebSocket connection handler
@@ -204,6 +208,9 @@ process.on('SIGTERM', async () => {
   // Stop all recordings
   await recordingController.stopAll();
   
+  // Close database connections
+  await db.close();
+  
   // Close WebSocket connections
   wss.clients.forEach((client) => {
     client.close();
@@ -220,26 +227,47 @@ process.on('SIGTERM', async () => {
 const PORT = config.server.port || 8080;
 const HOST = config.server.host || '0.0.0.0';
 
-// Ensure storage directory exists
-storageManager.initialize().then(() => {
-  server.listen(PORT, HOST, () => {
-    Logger.info(`ASTROSURVEILLANCE Edge Server running`, { host: HOST, port: PORT });
-    Logger.info('System ready for surveillance operations');
+// Initialize database and storage, then start server
+async function startServer() {
+  try {
+    // Initialize database (optional - continues if DB not available)
+    if (process.env.DB_HOST || config.database?.host) {
+      try {
+        await db.initialize(config.database || {});
+        Logger.info('Database connected');
+      } catch (dbError) {
+        Logger.warn('Database connection failed, running without persistence', { error: dbError.message });
+      }
+    } else {
+      Logger.info('No database configured, running in-memory only');
+    }
     
-    // Start camera discovery
-    cameraDiscovery.startDiscovery().then((cameras) => {
-      cameras.forEach((camera) => {
-        cameraManager.registerCamera(camera);
-        motionDetector.attachCamera(camera);
+    // Initialize storage
+    await storageManager.initialize();
+    
+    // Start HTTP server
+    server.listen(PORT, HOST, () => {
+      Logger.info(`ASTROSURVEILLANCE Edge Server running`, { host: HOST, port: PORT });
+      Logger.info('System ready for surveillance operations');
+      
+      // Start camera discovery
+      cameraDiscovery.startDiscovery().then((cameras) => {
+        cameras.forEach((camera) => {
+          cameraManager.registerCamera(camera);
+          motionDetector.attachCamera(camera);
+        });
+        Logger.info(`Discovered ${cameras.length} cameras`);
+      }).catch((err) => {
+        Logger.warn('Camera discovery failed', { error: err.message });
       });
-      Logger.info(`Discovered ${cameras.length} cameras`);
-    }).catch((err) => {
-      Logger.warn('Camera discovery failed', { error: err.message });
     });
-  });
-}).catch((err) => {
-  Logger.error('Failed to initialize storage', { error: err.message });
-  process.exit(1);
-});
+    
+  } catch (err) {
+    Logger.error('Failed to start server', { error: err.message });
+    process.exit(1);
+  }
+}
+
+startServer();
 
 module.exports = { app, server, broadcast };

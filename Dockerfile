@@ -28,6 +28,14 @@ ENV NODE_ENV=production
 ENV PORT=3080
 ENV HOST=0.0.0.0
 
+# Database environment variables (set these in your deployment)
+ENV DB_HOST=""
+ENV DB_PORT=5432
+ENV DB_NAME=astrosurveillance
+ENV DB_USER=postgres
+ENV DB_PASSWORD=""
+ENV DB_SSL=false
+
 # Expose port
 EXPOSE 3080
 

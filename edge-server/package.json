@@ -18,20 +18,21 @@
   "author": "Bonnesante Medicals",
   "license": "PROPRIETARY",
   "dependencies": {
-    "express": "^4.18.2",
     "cors": "^2.8.5",
-    "uuid": "^9.0.0",
-    "node-onvif": "^0.1.7",
+    "express": "^4.18.2",
     "fluent-ffmpeg": "^2.1.2",
-    "ws": "^8.14.2",
-    "qrcode": "^1.5.3",
     "node-cron": "^3.0.2",
+    "node-onvif": "^0.1.7",
+    "pg": "^8.16.3",
+    "qrcode": "^1.5.3",
     "sharp": "^0.32.6",
-    "winston": "^3.11.0"
+    "uuid": "^9.0.0",
+    "winston": "^3.11.0",
+    "ws": "^8.14.2"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1",
-    "jest": "^29.7.0"
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1"
   },
   "engines": {
     "node": ">=18.0.0"
