@@ -1,9 +1,17 @@
 {
   "version": 2,
-  "buildCommand": "",
-  "outputDirectory": "web-preview",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+  "public": true,
+  "builds": [
+    {
+      "src": "web-preview/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/web-preview/$1"
+    }
   ],
   "headers": [
     {
