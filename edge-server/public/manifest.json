@@ -1,0 +1,44 @@
+{
+  "name": "ASTROSURVEILLANCE - Intelligent Factory Surveillance",
+  "short_name": "AstroSurv",
+  "description": "Motion-triggered factory surveillance system for Bonnesante Medicals",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f1a",
+  "theme_color": "#1a1a2e",
+  "orientation": "any",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["security", "utilities", "business"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Trigger Alarm",
+      "short_name": "Alarm",
+      "description": "Trigger the alarm system",
+      "url": "/?action=alarm"
+    },
+    {
+      "name": "WiFi Setup",
+      "short_name": "WiFi",
+      "description": "Connect a camera via WiFi",
+      "url": "/?action=wifi"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offline - ASTROSURVEILLANCE</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      padding: 20px;
+      text-align: center;
+    }
+    
+    .offline-icon {
+      font-size: 80px;
+      margin-bottom: 24px;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    h1 {
+      font-size: 28px;
+      margin-bottom: 16px;
+      color: #e94560;
+    }
+    
+    p {
+      font-size: 16px;
+      color: #b8b8d1;
+      margin-bottom: 32px;
+      max-width: 400px;
+      line-height: 1.6;
+    }
+    
+    .retry-btn {
+      background: linear-gradient(135deg, #e94560, #ff6b6b);
+      color: white;
+      border: none;
+      padding: 16px 32px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .retry-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(233, 69, 96, 0.4);
+    }
+    
+    .retry-btn:active {
+      transform: translateY(0);
+    }
+    
+    .status {
+      margin-top: 32px;
+      padding: 16px 24px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      font-size: 14px;
+      color: #6c6c8a;
+    }
+    
+    .logo {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+  </style>
+</head>
+<body>
+  <div class="offline-icon">📡</div>
+  <div class="logo">ASTROSURVEILLANCE</div>
+  <h1>You're Offline</h1>
+  <p>Unable to connect to the surveillance server. Please check your internet connection and try again.</p>
+  
+  <button class="retry-btn" onclick="location.reload()">
+    🔄 Retry Connection
+  </button>
+  
+  <div class="status">
+    <strong>Tip:</strong> The app will automatically reconnect when you're back online.
+  </div>
+  
+  <script>
+    // Auto-retry when online
+    window.addEventListener('online', () => {
+      location.reload();
+    });
+    
+    // Check connection periodically
+    setInterval(() => {
+      if (navigator.onLine) {
+        fetch('/')
+          .then(() => location.reload())
+          .catch(() => {});
+      }
+    }, 5000);
+  </script>
+</body>
+</html>

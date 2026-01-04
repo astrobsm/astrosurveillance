@@ -4,8 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ASTROSURVEILLANCE - Surveillance Dashboard</title>
+  
+  <!-- PWA Meta Tags -->
+  <meta name="description" content="Intelligent Motion-Triggered Factory Surveillance System for Bonnesante Medicals">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AstroSurv">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="AstroSurv">
+  <meta name="msapplication-TileColor" content="#1a1a2e">
+  <meta name="msapplication-config" content="/browserconfig.xml">
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+  
+  <!-- Favicon & Icons -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icons/icon.svg">
+  
+  <!-- Splash Screens for iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="apple-touch-startup-image" href="/icons/icon.svg">
+  
+  <!-- Fonts & Styles -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet">
   <style>
@@ -2000,6 +2023,177 @@
         alert('Camera connected to WiFi but could not add to dashboard: ' + error.message);
       }
     }
+
+    // =============================================
+    // PWA - SERVICE WORKER & INSTALL PROMPT
+    // =============================================
+    
+    let deferredPrompt = null;
+    let swRegistration = null;
+    
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', async () => {
+        try {
+          swRegistration = await navigator.serviceWorker.register('/sw.js');
+          console.log('[PWA] Service Worker registered:', swRegistration.scope);
+          
+          // Check for updates
+          swRegistration.addEventListener('updatefound', () => {
+            const newWorker = swRegistration.installing;
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                showUpdateNotification();
+              }
+            });
+          });
+        } catch (err) {
+          console.error('[PWA] Service Worker registration failed:', err);
+        }
+      });
+    }
+    
+    // Capture install prompt
+    window.addEventListener('beforeinstallprompt', (e) => {
+      console.log('[PWA] Install prompt captured');
+      e.preventDefault();
+      deferredPrompt = e;
+      showInstallButton();
+    });
+    
+    // Detect successful install
+    window.addEventListener('appinstalled', () => {
+      console.log('[PWA] App installed');
+      deferredPrompt = null;
+      hideInstallButton();
+      addEvent('App installed successfully!', 'recording');
+    });
+    
+    function showInstallButton() {
+      // Create install banner if not exists
+      if (!document.getElementById('pwa-install-banner')) {
+        const banner = document.createElement('div');
+        banner.id = 'pwa-install-banner';
+        banner.innerHTML = `
+          <div style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); 
+                      background: linear-gradient(135deg, #667eea, #764ba2); 
+                      padding: 16px 24px; border-radius: 16px; 
+                      box-shadow: 0 8px 32px rgba(102, 126, 234, 0.4);
+                      display: flex; align-items: center; gap: 16px; z-index: 10000;
+                      max-width: 90%; animation: slideUp 0.3s ease;">
+            <div style="flex: 1;">
+              <div style="font-weight: 600; color: white; margin-bottom: 4px;">
+                <i class="mdi mdi-download"></i> Install App
+              </div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.8);">
+                Add ASTROSURVEILLANCE to your home screen
+              </div>
+            </div>
+            <button onclick="installPWA()" style="background: white; color: #667eea; 
+                    border: none; padding: 10px 20px; border-radius: 8px; 
+                    font-weight: 600; cursor: pointer;">
+              Install
+            </button>
+            <button onclick="hideInstallButton()" style="background: none; border: none; 
+                    color: white; cursor: pointer; padding: 8px;">
+              <i class="mdi mdi-close"></i>
+            </button>
+          </div>
+        `;
+        document.body.appendChild(banner);
+        
+        // Add animation styles
+        if (!document.getElementById('pwa-styles')) {
+          const style = document.createElement('style');
+          style.id = 'pwa-styles';
+          style.textContent = `
+            @keyframes slideUp {
+              from { transform: translateX(-50%) translateY(100px); opacity: 0; }
+              to { transform: translateX(-50%) translateY(0); opacity: 1; }
+            }
+          `;
+          document.head.appendChild(style);
+        }
+      }
+    }
+    
+    function hideInstallButton() {
+      const banner = document.getElementById('pwa-install-banner');
+      if (banner) {
+        banner.remove();
+      }
+    }
+    
+    async function installPWA() {
+      if (!deferredPrompt) {
+        console.log('[PWA] No install prompt available');
+        return;
+      }
+      
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log('[PWA] Install outcome:', outcome);
+      
+      if (outcome === 'accepted') {
+        speak('Thank you for installing ASTROSURVEILLANCE!', true);
+      }
+      
+      deferredPrompt = null;
+      hideInstallButton();
+    }
+    
+    function showUpdateNotification() {
+      const updateBanner = document.createElement('div');
+      updateBanner.id = 'pwa-update-banner';
+      updateBanner.innerHTML = `
+        <div style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); 
+                    background: var(--success); padding: 12px 24px; border-radius: 12px; 
+                    box-shadow: 0 4px 16px rgba(0, 210, 106, 0.4);
+                    display: flex; align-items: center; gap: 12px; z-index: 10001;
+                    color: white; font-size: 14px;">
+          <i class="mdi mdi-update"></i>
+          <span>New version available!</span>
+          <button onclick="updateApp()" style="background: white; color: var(--success); 
+                  border: none; padding: 6px 12px; border-radius: 6px; 
+                  font-weight: 600; cursor: pointer; font-size: 12px;">
+            Update Now
+          </button>
+        </div>
+      `;
+      document.body.appendChild(updateBanner);
+    }
+    
+    function updateApp() {
+      if (swRegistration && swRegistration.waiting) {
+        swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+      window.location.reload();
+    }
+    
+    // Request notification permission
+    async function requestNotificationPermission() {
+      if ('Notification' in window && Notification.permission === 'default') {
+        const permission = await Notification.requestPermission();
+        console.log('[PWA] Notification permission:', permission);
+      }
+    }
+    
+    // Request notification permission on first interaction
+    document.addEventListener('click', () => {
+      requestNotificationPermission();
+    }, { once: true });
+    
+    // Online/offline detection
+    window.addEventListener('online', () => {
+      console.log('[PWA] Back online');
+      addEvent('Connection restored', 'recording');
+      fetchData();
+    });
+    
+    window.addEventListener('offline', () => {
+      console.log('[PWA] Went offline');
+      addEvent('Connection lost - offline mode', 'motion');
+    });
   </script>
 </body>
 </html>
