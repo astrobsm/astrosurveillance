@@ -283,10 +283,21 @@ router.post('/:id/test-motion', (req, res) => {
  */
 router.post('/scan', (req, res) => {
   const { cameraManager, motionDetector, recordingController } = req.app.locals.modules;
-  const { scanData, barcodeData, rawData } = req.body;
+  const { scanData, barcodeData, rawData, ubox, cameraType, model } = req.body;
   
   // Accept different field names for the scanned data
-  const data = scanData || barcodeData || rawData;
+  let data = scanData || barcodeData || rawData;
+  
+  // If UBOX data is provided, format it for camera registration
+  if (ubox && ubox.uid) {
+    data = JSON.stringify({
+      uid: ubox.uid,
+      password: ubox.password || 'admin',
+      name: model || 'GZ-SONY MAKE.BELIEVE',
+      type: 'UBOX',
+      location: 'Bonnesante Factory'
+    });
+  }
   
   if (!data) {
     return res.status(400).json({

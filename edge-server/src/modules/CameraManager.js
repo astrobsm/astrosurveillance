@@ -273,12 +273,21 @@ class CameraManager extends EventEmitter {
         else if (scanData.startsWith('ONVIF:')) {
           cameraData = this._parseOnvifBarcode(scanData);
         }
+        // Check if it looks like a UBOX UID (starts with letters, 14-20 alphanumeric)
+        else if (/^[A-Z]{3,4}[A-Z0-9]{10,16}$/i.test(scanData)) {
+          cameraData = this._parseUboxUid(scanData);
+        }
         // Try parsing as colon-separated values (ip:port:user:pass:name)
         else {
           cameraData = this._parseSimpleBarcode(scanData);
         }
       } else {
         cameraData = scanData;
+      }
+      
+      // Handle UBOX cameras (have UID instead of IP)
+      if (cameraData.uid || cameraData.type === 'UBOX') {
+        return this._registerUboxCamera(cameraData);
       }
       
       // Validate required fields
@@ -377,6 +386,56 @@ class CameraManager extends EventEmitter {
       name: parts[4] || `Camera ${parts[0]}`,
       location: parts[5] || 'Unknown'
     };
+  }
+  
+  /**
+   * Parse UBOX UID format
+   * @private
+   */
+  _parseUboxUid(uid) {
+    return {
+      uid: uid.toUpperCase(),
+      type: 'UBOX',
+      name: 'GZ-SONY MAKE.BELIEVE',
+      password: 'admin'
+    };
+  }
+  
+  /**
+   * Register a UBOX P2P camera
+   * UBOX cameras use P2P connection via UID instead of direct IP
+   * @private
+   */
+  _registerUboxCamera(cameraData) {
+    const cameraId = this.generateCameraId();
+    const uid = cameraData.uid;
+    const password = cameraData.password || 'admin';
+    
+    const camera = {
+      id: cameraId,
+      name: cameraData.name || 'GZ-SONY MAKE.BELIEVE',
+      location: cameraData.location || 'Bonnesante Factory',
+      type: 'UBOX',
+      uid: uid,
+      // UBOX cameras typically use P2P, but may also support local RTSP
+      // Try common UBOX RTSP paths
+      rtspUrl: `rtsp://admin:${password}@${uid}/stream1`,
+      onvifUrl: null, // UBOX cameras typically don't support ONVIF
+      credentials: {
+        username: 'admin',
+        password: password
+      },
+      connectionType: 'P2P',
+      p2pInfo: {
+        uid: uid,
+        password: password,
+        server: 'p2p.cloudlinks.cn' // Common UBOX P2P server
+      }
+    };
+    
+    Logger.info('UBOX camera registered', { cameraId, uid: uid.substring(0, 4) + '***' });
+    
+    return this.registerCamera(camera);
   }
   
   /**

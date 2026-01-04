@@ -701,16 +701,31 @@
       <!-- Manual Input Fallback -->
       <div style="margin-top: 12px;">
         <div style="text-align: center; color: var(--text-muted); font-size: 12px; margin-bottom: 8px;">— OR ENTER MANUALLY —</div>
-        <input type="text" id="barcode-manual-input" placeholder="Paste barcode data or camera info here..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--surface-light); background: var(--background); color: var(--text-primary); font-family: monospace; font-size: 12px;">
+        <input type="text" id="barcode-manual-input" placeholder="Paste UBOX UID, barcode data, or camera info..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--surface-light); background: var(--background); color: var(--text-primary); font-family: monospace; font-size: 12px;">
+      </div>
+      
+      <!-- UBOX Camera Info -->
+      <div style="margin-top: 12px; padding: 12px; background: linear-gradient(135deg, #1a365d, #2d3748); border-radius: 8px; border: 1px solid #4a5568;">
+        <div style="font-size: 12px; color: #90cdf4; margin-bottom: 8px;"><i class="mdi mdi-information"></i> <strong>UBOX Camera Connection</strong></div>
+        <div style="font-size: 11px; color: #a0aec0; line-height: 1.6;">
+          <p style="margin-bottom: 8px;">Your GZ-SONY MAKE.BELIEVE camera uses <strong style="color: #90cdf4;">UBOX</strong> software. To connect:</p>
+          <ol style="margin: 0 0 0 16px; padding: 0;">
+            <li>Find the <strong>UID</strong> on your camera label (starts with letters, e.g., VSTD123456ABCDE)</li>
+            <li>Or scan the QR code on the camera box/label</li>
+            <li>Default password is usually: <code style="background: #2d3748; padding: 2px 6px; border-radius: 4px;">admin</code> or <code style="background: #2d3748; padding: 2px 6px; border-radius: 4px;">888888</code></li>
+          </ol>
+        </div>
       </div>
       
       <!-- Supported Formats -->
       <div style="margin-top: 12px; padding: 12px; background: var(--background); border-radius: 8px; font-size: 11px; color: var(--text-muted);">
         <strong>Supported formats:</strong>
         <ul style="margin: 4px 0 0 16px; padding: 0;">
-          <li>QR/JSON: {"ip":"...","user":"...","pass":"..."}</li>
-          <li>RTSP URL: rtsp://user:pass@192.168.1.100/stream</li>
-          <li>Simple: 192.168.1.100:554:admin:password</li>
+          <li><strong>UBOX UID:</strong> VSTD123456ABCDE (from camera label)</li>
+          <li><strong>UBOX QR:</strong> Auto-detected from camera QR code</li>
+          <li>QR/JSON: {"uid":"...","pwd":"..."} or {"ip":"...","user":"...","pass":"..."}</li>
+          <li>RTSP URL: rtsp://admin:admin@192.168.1.100:554/stream1</li>
+          <li>IP Format: 192.168.1.100:554:admin:password</li>
         </ul>
       </div>
       
@@ -1697,6 +1712,39 @@
       }
     }
     
+    // Parse UBOX camera data (UID format: typically starts with letters like VSTD, VSTA, etc.)
+    function parseUboxData(data) {
+      // UBOX UID pattern: typically 14-20 alphanumeric characters starting with letters
+      const uidPattern = /^[A-Z]{3,4}[A-Z0-9]{10,16}$/i;
+      
+      // Check if it's a plain UBOX UID
+      if (uidPattern.test(data)) {
+        return { uid: data.toUpperCase(), type: 'ubox-uid' };
+      }
+      
+      // Check for UBOX QR format: uid:password or {"uid":"...","pwd":"..."}
+      if (data.includes(':') && !data.includes('://')) {
+        const parts = data.split(':');
+        if (parts.length >= 2 && uidPattern.test(parts[0])) {
+          return { uid: parts[0].toUpperCase(), password: parts[1], type: 'ubox-uid-pwd' };
+        }
+      }
+      
+      // Check for JSON with uid field
+      try {
+        const json = JSON.parse(data);
+        if (json.uid || json.UID || json.deviceId) {
+          return { 
+            uid: (json.uid || json.UID || json.deviceId).toUpperCase(), 
+            password: json.pwd || json.password || json.pass || 'admin',
+            type: 'ubox-json'
+          };
+        }
+      } catch (e) {}
+      
+      return null;
+    }
+    
     async function addBarcodeCamera() {
       const scanData = document.getElementById('barcode-manual-input').value.trim() || detectedBarcodeData;
       
@@ -1706,16 +1754,30 @@
         return;
       }
       
-      speak('Adding camera. Please wait.', true);
+      // Check if it's UBOX format
+      const uboxData = parseUboxData(scanData);
+      if (uboxData) {
+        speak('UBOX camera detected. UID: ' + uboxData.uid.substring(0, 4) + '. Adding camera.', true);
+      } else {
+        speak('Adding camera. Please wait.', true);
+      }
       
       try {
         document.getElementById('barcode-status-text').textContent = 'Adding camera...';
         document.getElementById('barcode-status').style.color = 'var(--warning)';
         
+        // Prepare request body - include UBOX data if detected
+        const requestBody = { scanData: scanData };
+        if (uboxData) {
+          requestBody.ubox = uboxData;
+          requestBody.cameraType = 'UBOX';
+          requestBody.model = 'GZ-SONY MAKE.BELIEVE';
+        }
+        
         const res = await fetch(API_BASE + '/cameras/scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scanData: scanData })
+          body: JSON.stringify(requestBody)
         });
         
         const data = await res.json();
