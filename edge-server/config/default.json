@@ -4,13 +4,13 @@
     "host": "0.0.0.0"
   },
   "database": {
-    "host": "",
-    "port": 5432,
-    "database": "astrosurveillance",
-    "user": "postgres",
+    "host": "astrobsmvelvet-db-do-user-23752526-0.e.db.ondigitalocean.com",
+    "port": 25060,
+    "database": "defaultdb",
+    "user": "",
     "password": "",
-    "ssl": false,
-    "enabled": false
+    "ssl": true,
+    "enabled": true
   },
   "recording": {
     "durationSeconds": 60,

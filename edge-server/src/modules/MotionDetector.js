@@ -13,7 +13,7 @@
 
 const EventEmitter = require('events');
 const Logger = require('../utils/Logger');
-const { MotionEventType } = require('../../../shared/types');
+const { MotionEventType } = require('../shared/types');
 
 class MotionDetector extends EventEmitter {
   constructor(config) {

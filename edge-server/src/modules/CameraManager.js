@@ -11,7 +11,7 @@
 
 const EventEmitter = require('events');
 const Logger = require('../utils/Logger');
-const { CameraStatus } = require('../../../shared/types');
+const { CameraStatus } = require('../shared/types');
 
 class CameraManager extends EventEmitter {
   constructor(config) {

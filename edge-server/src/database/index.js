@@ -19,17 +19,28 @@ class Database {
    * @param {Object} config - Database configuration
    */
   async initialize(config = {}) {
+    // Determine SSL settings - DigitalOcean requires SSL
+    const useSSL = config.ssl !== undefined ? config.ssl : process.env.DB_SSL === 'true';
+    const sslConfig = useSSL ? { rejectUnauthorized: false } : false;
+
     const dbConfig = {
       host: config.host || process.env.DB_HOST || 'localhost',
-      port: config.port || process.env.DB_PORT || 5432,
+      port: parseInt(config.port || process.env.DB_PORT || 5432, 10),
       database: config.database || process.env.DB_NAME || 'astrosurveillance',
       user: config.user || process.env.DB_USER || 'postgres',
       password: config.password || process.env.DB_PASSWORD || '',
-      ssl: config.ssl || process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      ssl: sslConfig,
       max: config.maxConnections || 10,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 15000, // Increased for remote connections
     };
+
+    Logger.info('Attempting database connection', { 
+      host: dbConfig.host, 
+      port: dbConfig.port,
+      database: dbConfig.database,
+      ssl: !!dbConfig.ssl 
+    });
 
     try {
       this.pool = new Pool(dbConfig);

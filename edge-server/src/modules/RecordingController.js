@@ -19,7 +19,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const path = require('path');
 const Timer = require('../utils/Timer');
 const Logger = require('../utils/Logger');
-const { RecordingState, generateVideoFilename } = require('../../../shared/types');
+const { RecordingState, generateVideoFilename } = require('../shared/types');
 
 class RecordingController extends EventEmitter {
   constructor(config, storageManager) {

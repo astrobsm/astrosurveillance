@@ -11,7 +11,7 @@
 const EventEmitter = require('events');
 const Timer = require('../utils/Timer');
 const Logger = require('../utils/Logger');
-const { AlarmState } = require('../../../shared/types');
+const { AlarmState } = require('../shared/types');
 
 class AlarmController extends EventEmitter {
   constructor(config) {

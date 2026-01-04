@@ -15,7 +15,7 @@ const fs = require('fs').promises;
 const fsSync = require('fs');
 const path = require('path');
 const Logger = require('../utils/Logger');
-const { StorageHealth, parseVideoFilename } = require('../../../shared/types');
+const { StorageHealth, parseVideoFilename } = require('../shared/types');
 
 class StorageManager extends EventEmitter {
   constructor(config) {

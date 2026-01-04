@@ -5,6 +5,9 @@
  * Runs on the edge device (Raspberry Pi / Industrial PC) connected to cameras.
  */
 
+// Load environment variables first
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
