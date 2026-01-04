@@ -18,7 +18,7 @@ RUN npm ci --only=production
 # Copy application code
 COPY edge-server/src ./src
 COPY edge-server/config ./config
-COPY shared ./shared
+COPY edge-server/public ./public
 
 # Create directories for recordings and logs
 RUN mkdir -p /app/recordings /app/logs
