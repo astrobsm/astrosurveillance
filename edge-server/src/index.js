@@ -29,6 +29,7 @@ const AlarmController = require('./modules/AlarmController');
 const StorageManager = require('./modules/StorageManager');
 const CameraDiscovery = require('./modules/CameraDiscovery');
 const SecurityManager = require('./modules/SecurityManager');
+const QRPairing = require('./modules/QRPairing');
 const Logger = require('./utils/Logger');
 
 // Import API routes
@@ -68,6 +69,7 @@ const cameraDiscovery = new CameraDiscovery(config.cameras);
 const cameraManager = new CameraManager(config.cameras);
 const motionDetector = new MotionDetector(config.motionDetection);
 const recordingController = new RecordingController(config.recording, storageManager);
+const qrPairing = new QRPairing(cameraManager, cameraDiscovery);
 
 // Make modules available to routes
 app.locals.modules = {
@@ -78,6 +80,7 @@ app.locals.modules = {
   cameraManager,
   motionDetector,
   recordingController,
+  qrPairing,
   config,
   wss,
   db

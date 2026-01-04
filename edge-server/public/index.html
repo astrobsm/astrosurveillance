@@ -547,8 +547,11 @@
           </div>
         </div>
         <div class="action-buttons">
+          <button class="action-btn" onclick="openQRPairModal()">
+            <i class="mdi mdi-qrcode"></i> QR Pair
+          </button>
           <button class="action-btn" onclick="openScanModal()">
-            <i class="mdi mdi-qrcode-scan"></i> Scan Barcode
+            <i class="mdi mdi-qrcode-scan"></i> Add Manual
           </button>
           <button class="action-btn" onclick="discoverCameras()">
             <i class="mdi mdi-magnify"></i> Discover
@@ -617,6 +620,62 @@
         <button onclick="closeScanModal()">Cancel</button>
         <button class="primary" onclick="addScannedCamera()">
           <i class="mdi mdi-plus"></i> Add Camera
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Pairing Modal -->
+  <div id="qr-pair-modal" class="modal hidden">
+    <div class="modal-content" style="max-width: 500px; text-align: center;">
+      <h3><i class="mdi mdi-qrcode"></i> QR Code Pairing</h3>
+      <p>Point your camera at this QR code to automatically pair it.</p>
+      
+      <!-- Camera Name/Location Input -->
+      <div id="qr-input-section">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; text-align: left;">
+          <div>
+            <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Camera Name</label>
+            <input type="text" id="qr-cam-name" placeholder="Factory Entrance">
+          </div>
+          <div>
+            <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Location</label>
+            <input type="text" id="qr-cam-location" placeholder="Building A">
+          </div>
+        </div>
+        <button class="action-btn" style="width: 100%; background: var(--accent); color: white;" onclick="generatePairingQR()">
+          <i class="mdi mdi-qrcode"></i> Generate QR Code
+        </button>
+      </div>
+      
+      <!-- QR Code Display -->
+      <div id="qr-display-section" class="hidden" style="margin-top: 16px;">
+        <div id="qr-code-container" style="background: white; padding: 20px; border-radius: 12px; display: inline-block; margin-bottom: 16px;">
+          <img id="qr-code-img" style="width: 280px; height: 280px;" alt="Pairing QR Code">
+        </div>
+        
+        <div id="qr-status" style="padding: 12px; background: var(--surface-light); border-radius: 8px; margin-bottom: 16px;">
+          <i class="mdi mdi-loading mdi-spin" style="margin-right: 8px;"></i>
+          <span id="qr-status-text">Waiting for camera to scan...</span>
+        </div>
+        
+        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
+          <strong>Instructions:</strong><br>
+          1. Display this QR code on your screen<br>
+          2. Point your ONVIF camera at the screen<br>
+          3. The server will detect the camera viewing this code<br>
+          4. Camera will be automatically paired
+        </div>
+        
+        <div id="qr-timer" style="font-size: 14px; color: var(--warning); margin-bottom: 12px;">
+          Expires in: <span id="qr-countdown">5:00</span>
+        </div>
+      </div>
+      
+      <div class="modal-buttons">
+        <button onclick="closeQRPairModal()">Close</button>
+        <button class="primary hidden" id="qr-regenerate-btn" onclick="regeneratePairingQR()">
+          <i class="mdi mdi-refresh"></i> Generate New
         </button>
       </div>
     </div>
@@ -960,6 +1019,181 @@
     fetchData();
     connectWebSocket();
     setInterval(fetchData, 10000);
+
+    // =============================================
+    // QR CODE PAIRING FUNCTIONALITY
+    // =============================================
+    
+    let currentPairingToken = null;
+    let pairingPollInterval = null;
+    let countdownInterval = null;
+    let pairingExpiresAt = null;
+    
+    function openQRPairModal() {
+      document.getElementById('qr-pair-modal').classList.remove('hidden');
+      document.getElementById('qr-input-section').classList.remove('hidden');
+      document.getElementById('qr-display-section').classList.add('hidden');
+      document.getElementById('qr-regenerate-btn').classList.add('hidden');
+    }
+    
+    function closeQRPairModal() {
+      document.getElementById('qr-pair-modal').classList.add('hidden');
+      
+      // Clean up
+      if (pairingPollInterval) {
+        clearInterval(pairingPollInterval);
+        pairingPollInterval = null;
+      }
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
+      
+      // Cancel the pairing session on the server
+      if (currentPairingToken) {
+        fetch(API_BASE + '/cameras/pair/' + currentPairingToken, { method: 'DELETE' }).catch(() => {});
+        currentPairingToken = null;
+      }
+      
+      // Reset form
+      document.getElementById('qr-cam-name').value = '';
+      document.getElementById('qr-cam-location').value = '';
+    }
+    
+    async function generatePairingQR() {
+      const camName = document.getElementById('qr-cam-name').value.trim() || 'New Camera';
+      const camLocation = document.getElementById('qr-cam-location').value.trim() || 'Unknown';
+      
+      try {
+        const res = await fetch(API_BASE + '/cameras/pair/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cameraName: camName,
+            location: camLocation,
+            expiresIn: 5 * 60 * 1000 // 5 minutes
+          })
+        });
+        
+        const data = await res.json();
+        
+        if (data.code === 'SUCCESS') {
+          currentPairingToken = data.data.token;
+          pairingExpiresAt = data.data.expiresAt;
+          
+          // Show QR code
+          document.getElementById('qr-code-img').src = data.data.qrCode;
+          document.getElementById('qr-input-section').classList.add('hidden');
+          document.getElementById('qr-display-section').classList.remove('hidden');
+          document.getElementById('qr-regenerate-btn').classList.remove('hidden');
+          
+          // Update status
+          document.getElementById('qr-status-text').textContent = 'Waiting for camera to scan...';
+          document.getElementById('qr-status').style.color = 'var(--warning)';
+          
+          // Start polling for pairing status
+          startPairingPoll();
+          
+          // Start countdown timer
+          startCountdown();
+          
+          addEvent('QR pairing code generated', 'motion');
+          
+        } else {
+          throw new Error(data.message || 'Failed to generate pairing code');
+        }
+        
+      } catch (error) {
+        console.log('QR generation error:', error);
+        alert('Failed to generate pairing code: ' + error.message);
+      }
+    }
+    
+    function regeneratePairingQR() {
+      // Cancel current session
+      if (currentPairingToken) {
+        fetch(API_BASE + '/cameras/pair/' + currentPairingToken, { method: 'DELETE' }).catch(() => {});
+      }
+      
+      // Clear intervals
+      if (pairingPollInterval) {
+        clearInterval(pairingPollInterval);
+      }
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+      }
+      
+      // Show input section again
+      document.getElementById('qr-input-section').classList.remove('hidden');
+      document.getElementById('qr-display-section').classList.add('hidden');
+      document.getElementById('qr-regenerate-btn').classList.add('hidden');
+    }
+    
+    function startPairingPoll() {
+      // Poll every 2 seconds
+      pairingPollInterval = setInterval(async () => {
+        if (!currentPairingToken) return;
+        
+        try {
+          const res = await fetch(API_BASE + '/cameras/pair/status/' + currentPairingToken);
+          const data = await res.json();
+          
+          if (data.code === 'SUCCESS') {
+            if (data.data.status === 'PAIRED') {
+              // Success!
+              clearInterval(pairingPollInterval);
+              clearInterval(countdownInterval);
+              
+              document.getElementById('qr-status').style.color = 'var(--success)';
+              document.getElementById('qr-status-text').innerHTML = 
+                '<i class="mdi mdi-check-circle"></i> Camera paired successfully!';
+              
+              addEvent('Camera paired via QR code: ' + (data.data.pairedCamera?.name || 'Unknown'), 'recording');
+              
+              // Refresh camera list
+              fetchData();
+              
+              // Close modal after 3 seconds
+              setTimeout(() => {
+                closeQRPairModal();
+                alert('Camera paired successfully!');
+              }, 2000);
+              
+            } else if (data.data.status === 'EXPIRED') {
+              clearInterval(pairingPollInterval);
+              clearInterval(countdownInterval);
+              
+              document.getElementById('qr-status').style.color = 'var(--danger)';
+              document.getElementById('qr-status-text').innerHTML = 
+                '<i class="mdi mdi-alert-circle"></i> Pairing code expired';
+            }
+          }
+        } catch (e) {
+          console.log('Poll error:', e);
+        }
+      }, 2000);
+    }
+    
+    function startCountdown() {
+      updateCountdown();
+      countdownInterval = setInterval(updateCountdown, 1000);
+    }
+    
+    function updateCountdown() {
+      if (!pairingExpiresAt) return;
+      
+      const remaining = Math.max(0, pairingExpiresAt - Date.now());
+      const minutes = Math.floor(remaining / 60000);
+      const seconds = Math.floor((remaining % 60000) / 1000);
+      
+      document.getElementById('qr-countdown').textContent = 
+        minutes + ':' + seconds.toString().padStart(2, '0');
+      
+      if (remaining <= 0) {
+        clearInterval(countdownInterval);
+        document.getElementById('qr-countdown').textContent = 'Expired';
+      }
+    }
   </script>
 </body>
 </html>

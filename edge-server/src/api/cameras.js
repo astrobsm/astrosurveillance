@@ -360,4 +360,126 @@ router.get('/scan/formats', (req, res) => {
   });
 });
 
+/**
+ * POST /api/cameras/pair/generate
+ * Generate a QR code for camera pairing
+ * The camera sees this code and automatically connects
+ */
+router.post('/pair/generate', async (req, res) => {
+  const { qrPairing } = req.app.locals.modules;
+  const { cameraName, location, expiresIn } = req.body;
+  
+  if (!qrPairing) {
+    return res.status(501).json({
+      code: 'ERROR',
+      message: 'QR pairing module not available'
+    });
+  }
+  
+  try {
+    const result = await qrPairing.generatePairingCode({
+      cameraName: cameraName || 'New Camera',
+      location: location || 'Unknown',
+      expiresIn: expiresIn || 5 * 60 * 1000 // 5 minutes default
+    });
+    
+    res.json({
+      code: 'SUCCESS',
+      data: {
+        token: result.token,
+        expiresAt: result.expiresAt,
+        qrCode: result.qrDataUrl,
+        qrSvg: result.qrSvg,
+        instructions: [
+          '1. Display this QR code on your screen',
+          '2. Point your camera at the QR code',
+          '3. The camera will be automatically detected and paired',
+          '4. This code expires in 5 minutes'
+        ]
+      }
+    });
+  } catch (err) {
+    res.status(500).json({
+      code: 'ERROR',
+      message: 'Failed to generate pairing code: ' + err.message
+    });
+  }
+});
+
+/**
+ * GET /api/cameras/pair/status/:token
+ * Check the status of a pairing session
+ */
+router.get('/pair/status/:token', (req, res) => {
+  const { qrPairing } = req.app.locals.modules;
+  const { token } = req.params;
+  
+  if (!qrPairing) {
+    return res.status(501).json({
+      code: 'ERROR',
+      message: 'QR pairing module not available'
+    });
+  }
+  
+  const status = qrPairing.getSessionStatus(token);
+  
+  res.json({
+    code: 'SUCCESS',
+    data: status
+  });
+});
+
+/**
+ * DELETE /api/cameras/pair/:token
+ * Cancel a pairing session
+ */
+router.delete('/pair/:token', (req, res) => {
+  const { qrPairing } = req.app.locals.modules;
+  const { token } = req.params;
+  
+  if (!qrPairing) {
+    return res.status(501).json({
+      code: 'ERROR',
+      message: 'QR pairing module not available'
+    });
+  }
+  
+  qrPairing.cancelSession(token);
+  
+  res.json({
+    code: 'SUCCESS',
+    message: 'Pairing session cancelled'
+  });
+});
+
+/**
+ * POST /api/cameras/pair/test
+ * Add an RTSP URL to scan for the pairing code (for testing)
+ */
+router.post('/pair/test', (req, res) => {
+  const { qrPairing } = req.app.locals.modules;
+  const { token, rtspUrl } = req.body;
+  
+  if (!qrPairing) {
+    return res.status(501).json({
+      code: 'ERROR',
+      message: 'QR pairing module not available'
+    });
+  }
+  
+  if (!token || !rtspUrl) {
+    return res.status(400).json({
+      code: 'ERROR',
+      message: 'token and rtspUrl are required'
+    });
+  }
+  
+  qrPairing.addPendingCamera(rtspUrl, token);
+  
+  res.json({
+    code: 'SUCCESS',
+    message: 'Camera added to scanning queue'
+  });
+});
+
 module.exports = router;
