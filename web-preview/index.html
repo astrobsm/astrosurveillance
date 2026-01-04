@@ -1080,7 +1080,12 @@
     const savedServer = localStorage.getItem('astro_server_url');
     const paramServer = urlParams.get('server');
     
-    let API_BASE = paramServer || savedServer || 'http://localhost:3080/api';
+    // Detect if running on Vercel
+    const isVercel = window.location.hostname.includes('vercel.app') || 
+                     window.location.hostname.includes('astrosurveillance');
+    
+    // Default to relative API on Vercel, localhost otherwise
+    let API_BASE = paramServer || savedServer || (isVercel ? '/api' : 'http://localhost:3080/api');
     
     // Ensure API_BASE ends with /api
     if (!API_BASE.endsWith('/api')) {
@@ -1089,9 +1094,17 @@
     
     let ws;
     let wsUrl = API_BASE.replace('/api', '').replace('http', 'ws');
+    let isLocalServer = !isVercel || savedServer || paramServer;
 
     // Show server config modal if no saved server
     window.addEventListener('load', () => {
+      // On Vercel, use the built-in API by default
+      if (isVercel && !savedServer && !paramServer) {
+        // Using Vercel API - no modal needed
+        updateServerDisplay();
+        return;
+      }
+      
       if (!savedServer && !paramServer) {
         // Check if localhost works, if not show modal
         fetch(API_BASE + '/system/health')
