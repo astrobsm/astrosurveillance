@@ -1,0 +1,51 @@
+# ASTROSURVEILLANCE - Docker Compose
+# For local development and testing
+
+version: '3.8'
+
+services:
+  edge-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: astrosurveillance
+    restart: unless-stopped
+    ports:
+      - "3080:3080"
+    environment:
+      - NODE_ENV=production
+      - PORT=3080
+      - HOST=0.0.0.0
+      # Alarm settings
+      - ALARM_DURATION=10
+      - ALARM_ENABLED=true
+      # Recording settings
+      - RECORDING_DURATION=60
+      - RECORDING_FORMAT=mp4
+      # Motion detection
+      - MOTION_THRESHOLD=15
+      - MOTION_SENSITIVITY=medium
+    volumes:
+      # Persist recordings
+      - astro-recordings:/app/recordings
+      # Persist logs
+      - astro-logs:/app/logs
+      # Optional: mount config for customization
+      # - ./edge-server/config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3080/api/system/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  astro-recordings:
+    driver: local
+  astro-logs:
+    driver: local
