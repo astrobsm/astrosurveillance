@@ -27,10 +27,10 @@ router.get('/', (req, res) => {
 });
 
 /**
- * GET /api/cameras/discover
+ * GET/POST /api/cameras/discover
  * Trigger ONVIF camera discovery
  */
-router.get('/discover', async (req, res) => {
+const discoverHandler = async (req, res) => {
   const { cameraDiscovery } = req.app.locals.modules;
   
   try {
@@ -38,6 +38,7 @@ router.get('/discover', async (req, res) => {
     
     res.json({
       code: 'SUCCESS',
+      count: cameras.length,
       data: {
         discovered: cameras
       }
@@ -48,7 +49,10 @@ router.get('/discover', async (req, res) => {
       message: 'Discovery failed: ' + err.message
     });
   }
-});
+};
+
+router.get('/discover', discoverHandler);
+router.post('/discover', discoverHandler);
 
 /**
  * GET /api/cameras/:id
