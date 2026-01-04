@@ -1,0 +1,9 @@
+{
+  "name": "astrosurveillance-web-preview",
+  "version": "1.0.0",
+  "description": "Web preview of ASTROSURVEILLANCE mobile interface",
+  "scripts": {
+    "start": "npx serve -s . -l 3000"
+  },
+  "dependencies": {}
+}

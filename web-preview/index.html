@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ASTROSURVEILLANCE - Mobile Preview</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #1a1a2e;
+      --primary-light: #16213e;
+      --accent: #e94560;
+      --accent-light: #ff6b6b;
+      --background: #0f0f1a;
+      --surface: #1a1a2e;
+      --surface-light: #252542;
+      --text-primary: #ffffff;
+      --text-secondary: #b8b8d1;
+      --text-muted: #6c6c8a;
+      --success: #00d26a;
+      --warning: #ffc107;
+      --danger: #ff4757;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .phone-frame {
+      width: 375px;
+      height: 812px;
+      background: var(--background);
+      border-radius: 40px;
+      overflow: hidden;
+      box-shadow: 0 25px 80px rgba(0,0,0,0.5), 0 0 0 12px #0a0a14;
+      position: relative;
+    }
+
+    .notch {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 150px;
+      height: 30px;
+      background: #0a0a14;
+      border-radius: 0 0 20px 20px;
+      z-index: 100;
+    }
+
+    .status-bar {
+      height: 44px;
+      padding: 12px 24px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .status-bar-icons {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .app-container {
+      height: calc(100% - 44px - 80px);
+      overflow-y: auto;
+      padding: 0 16px 16px;
+    }
+
+    .app-container::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Flashing alarm animation */
+    @keyframes flash {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    @keyframes borderPulse {
+      0%, 100% { box-shadow: inset 0 0 20px rgba(255, 71, 87, 0.3); }
+      50% { box-shadow: inset 0 0 40px rgba(255, 71, 87, 0.6); }
+    }
+
+    .alarm-card.flashing {
+      animation: flash 0.5s infinite, borderPulse 0.5s infinite;
+    }
+    /* Header */
+    .header {
+      padding: 16px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .header-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .connection-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface);
+      padding: 8px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--success);
+    }
+
+    .connection-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Alarm Card */
+    .alarm-card {
+      background: linear-gradient(135deg, var(--danger) 0%, #c0392b 100%);
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .alarm-card.safe {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--surface-light) 100%);
+    }
+
+    .alarm-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    }
+
+    .alarm-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+
+    .alarm-status {
+      font-size: 14px;
+      color: rgba(255,255,255,0.8);
+      margin-bottom: 4px;
+    }
+
+    .alarm-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: white;
+    }
+
+    .alarm-icon {
+      font-size: 48px;
+      color: rgba(255,255,255,0.3);
+    }
+
+    .alarm-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .alarm-btn {
+      flex: 1;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .alarm-btn.trigger {
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
+
+    .alarm-btn.stop {
+      background: white;
+      color: var(--danger);
+    }
+
+    .alarm-btn:hover {
+      transform: scale(1.02);
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .stat-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-bottom: 12px;
+    }
+
+    .stat-icon.cameras { background: rgba(233, 69, 96, 0.2); color: var(--accent); }
+    .stat-icon.recordings { background: rgba(0, 210, 106, 0.2); color: var(--success); }
+    .stat-icon.storage { background: rgba(255, 193, 7, 0.2); color: var(--warning); }
+    .stat-icon.uptime { background: rgba(108, 108, 138, 0.2); color: var(--text-secondary); }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Section */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .section-link {
+      font-size: 14px;
+      color: var(--accent);
+      cursor: pointer;
+    }
+
+    /* Camera List */
+    .camera-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .camera-card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .camera-preview {
+      width: 80px;
+      height: 60px;
+      background: var(--surface-light);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 24px;
+    }
+
+    .camera-info {
+      flex: 1;
+    }
+
+    .camera-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .camera-location {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .camera-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+
+    .camera-status.online { color: var(--success); }
+    .camera-status.recording { color: var(--accent); }
+
+    .camera-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* Recent Events */
+    .events-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .event-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--surface);
+      border-radius: 12px;
+    }
+
+    .event-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .event-icon.motion { background: rgba(233, 69, 96, 0.2); color: var(--accent); }
+    .event-icon.recording { background: rgba(0, 210, 106, 0.2); color: var(--success); }
+
+    .event-info {
+      flex: 1;
+    }
+
+    .event-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .event-time {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Tab Bar */
+    .tab-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 80px;
+      background: var(--surface);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding-bottom: 20px;
+      border-top: 1px solid var(--surface-light);
+    }
+
+    .tab-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .tab-item.active {
+      color: var(--accent);
+    }
+
+    .tab-item i {
+      font-size: 24px;
+    }
+
+    .tab-item span {
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    /* Page info */
+    .page-info {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      margin-top: 40px;
+    }
+
+    .page-info h3 {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    /* Recordings Page */
+    .recordings-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .recording-item {
+      background: var(--surface);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .recording-preview {
+      height: 120px;
+      background: linear-gradient(135deg, var(--surface-light) 0%, var(--primary) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .recording-preview i {
+      font-size: 48px;
+      color: var(--text-muted);
+    }
+
+    .recording-duration {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: rgba(0,0,0,0.7);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: white;
+    }
+
+    .recording-info {
+      padding: 16px;
+    }
+
+    .recording-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .recording-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .recording-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .recording-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .recording-btn.play {
+      background: var(--accent);
+      color: white;
+    }
+
+    .recording-btn.download {
+      background: var(--surface-light);
+      color: var(--text-secondary);
+    }
+
+    /* Settings Page */
+    .settings-section {
+      background: var(--surface);
+      border-radius: 16px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .settings-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 16px 16px 8px;
+    }
+
+    .settings-item {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      border-top: 1px solid var(--surface-light);
+      cursor: pointer;
+    }
+
+    .settings-item:first-of-type {
+      border-top: none;
+    }
+
+    .settings-item i {
+      font-size: 20px;
+      color: var(--text-secondary);
+      margin-right: 12px;
+    }
+
+    .settings-item span {
+      flex: 1;
+      font-size: 14px;
+      color: var(--text-primary);
+    }
+
+    .settings-item .mdi-chevron-right {
+      color: var(--text-muted);
+    }
+
+    .settings-value {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-right: 8px;
+    }
+
+    /* Toggle Switch */
+    .toggle {
+      width: 48px;
+      height: 28px;
+      background: var(--surface-light);
+      border-radius: 14px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle.active {
+      background: var(--accent);
+    }
+
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      background: white;
+      border-radius: 50%;
+      top: 3px;
+      left: 3px;
+      transition: transform 0.2s;
+    }
+
+    .toggle.active::after {
+      transform: translateX(20px);
+    }
+
+    /* Navigation tabs */
+    .page-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .page-tab {
+      padding: 8px 16px;
+      background: var(--surface);
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+
+    .page-tab.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="phone-frame">
+    <div class="notch"></div>
+    
+    <div class="status-bar">
+      <span>9:41</span>
+      <div class="status-bar-icons">
+        <i class="mdi mdi-signal" style="font-size: 16px;"></i>
+        <i class="mdi mdi-wifi" style="font-size: 16px;"></i>
+        <i class="mdi mdi-battery" style="font-size: 18px;"></i>
+      </div>
+    </div>
+    
+    <div class="app-container" id="app-container">
+      <!-- Page Navigation -->
+      <div class="page-tabs">
+        <button class="page-tab active" onclick="showPage('dashboard')">Dashboard</button>
+        <button class="page-tab" onclick="showPage('cameras')">Cameras</button>
+        <button class="page-tab" onclick="showPage('recordings')">Recordings</button>
+        <button class="page-tab" onclick="showPage('settings')">Settings</button>
+      </div>
+
+      <!-- Dashboard Page -->
+      <div id="page-dashboard">
+        <div class="header">
+          <div>
+            <div class="header-title">ASTROSURVEILLANCE</div>
+            <div class="header-subtitle">Bonnesante Medicals</div>
+          </div>
+          <div class="connection-badge">
+            <div class="connection-dot"></div>
+            Connected
+          </div>
+        </div>
+
+        <div class="alarm-card safe" id="alarm-card">
+          <div class="alarm-header">
+            <div>
+              <div class="alarm-status">System Status</div>
+              <div class="alarm-title" id="alarm-title">All Clear</div>
+            </div>
+            <i class="mdi mdi-shield-check alarm-icon" id="alarm-icon"></i>
+          </div>
+          <div class="alarm-actions">
+            <button class="alarm-btn trigger" onclick="triggerAlarm()">
+              <i class="mdi mdi-alarm-light"></i>
+              Test Alarm
+            </button>
+            <button class="alarm-btn stop" onclick="stopAlarm()">
+              <i class="mdi mdi-stop"></i>
+              Stop
+            </button>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon cameras">
+              <i class="mdi mdi-cctv"></i>
+            </div>
+            <div class="stat-value" id="stat-cameras">0</div>
+            <div class="stat-label">Cameras Online</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon recordings">
+              <i class="mdi mdi-filmstrip"></i>
+            </div>
+            <div class="stat-value" id="stat-recordings">0</div>
+            <div class="stat-label">Recordings</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon storage">
+              <i class="mdi mdi-harddisk"></i>
+            </div>
+            <div class="stat-value" id="stat-storage">0%</div>
+            <div class="stat-label">Storage Used</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon uptime">
+              <i class="mdi mdi-clock-outline"></i>
+            </div>
+            <div class="stat-value" id="stat-uptime">0m</div>
+            <div class="stat-label">Uptime</div>
+          </div>
+        </div>
+
+        <div class="section-header">
+          <div class="section-title">Recent Events</div>
+          <span class="section-link">View All</span>
+        </div>
+
+        <div class="events-list" id="events-list">
+          <div class="event-item">
+            <div class="event-icon recording">
+              <i class="mdi mdi-check"></i>
+            </div>
+            <div class="event-info">
+              <div class="event-title">System Started</div>
+              <div class="event-time">Just now</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cameras Page -->
+      <div id="page-cameras" class="hidden">
+        <div class="header">
+          <div>
+            <div class="header-title">Cameras</div>
+            <div class="header-subtitle" id="cameras-subtitle">0 cameras connected</div>
+          </div>
+          <button class="alarm-btn trigger" style="padding: 10px 16px;" onclick="discoverCameras()">
+            <i class="mdi mdi-magnify"></i>
+            Discover
+          </button>
+        </div>
+
+        <div class="camera-list" id="camera-list">
+          <div class="camera-card">
+            <div class="camera-preview">
+              <i class="mdi mdi-cctv"></i>
+            </div>
+            <div class="camera-info">
+              <div class="camera-name">No Cameras</div>
+              <div class="camera-location">Add cameras via ONVIF discovery</div>
+              <div class="camera-status">
+                <div class="camera-status-dot"></div>
+                Waiting...
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page-info">
+          <h3>Camera Discovery</h3>
+          <p>Connect ONVIF-compatible cameras to your network and click Discover to find them automatically.</p>
+        </div>
+      </div>
+
+      <!-- Recordings Page -->
+      <div id="page-recordings" class="hidden">
+        <div class="header">
+          <div>
+            <div class="header-title">Recordings</div>
+            <div class="header-subtitle" id="recordings-subtitle">0 recordings stored</div>
+          </div>
+        </div>
+
+        <div class="recordings-list" id="recordings-list">
+          <div class="recording-item">
+            <div class="recording-preview">
+              <i class="mdi mdi-filmstrip-off"></i>
+            </div>
+            <div class="recording-info">
+              <div class="recording-name">No Recordings Yet</div>
+              <div class="recording-meta">Recordings will appear here when motion is detected</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Page -->
+      <div id="page-settings" class="hidden">
+        <div class="header">
+          <div>
+            <div class="header-title">Settings</div>
+            <div class="header-subtitle">System Configuration</div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">Server</div>
+          <div class="settings-item" onclick="showServerModal()" style="cursor:pointer;">
+            <i class="mdi mdi-server"></i>
+            <span>Server Address</span>
+            <span class="settings-value" id="server-address">localhost:3080</span>
+            <i class="mdi mdi-chevron-right"></i>
+          </div>
+          <div class="settings-item">
+            <i class="mdi mdi-clock-outline"></i>
+            <span>Uptime</span>
+            <span class="settings-value" id="settings-uptime">0m</span>
+          </div>
+          <div class="settings-item">
+            <i class="mdi mdi-information"></i>
+            <span>Version</span>
+            <span class="settings-value">1.0.0</span>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">Alarm</div>
+          <div class="settings-item">
+            <i class="mdi mdi-alarm-light"></i>
+            <span>Alarm Enabled</span>
+            <div class="toggle active" onclick="this.classList.toggle('active')"></div>
+          </div>
+          <div class="settings-item">
+            <i class="mdi mdi-timer"></i>
+            <span>Alarm Duration</span>
+            <span class="settings-value">10 seconds</span>
+            <i class="mdi mdi-chevron-right"></i>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">Recording</div>
+          <div class="settings-item">
+            <i class="mdi mdi-filmstrip"></i>
+            <span>Recording Duration</span>
+            <span class="settings-value">60 seconds</span>
+            <i class="mdi mdi-chevron-right"></i>
+          </div>
+          <div class="settings-item">
+            <i class="mdi mdi-reload"></i>
+            <span>Reset Delay</span>
+            <span class="settings-value">3 seconds</span>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">Storage</div>
+          <div class="settings-item">
+            <i class="mdi mdi-harddisk"></i>
+            <span>Storage Usage</span>
+            <span class="settings-value" id="settings-storage">0%</span>
+          </div>
+          <div class="settings-item">
+            <i class="mdi mdi-broom"></i>
+            <span>Auto Cleanup</span>
+            <span class="settings-value">At 90%</span>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">Admin</div>
+          <div class="settings-item">
+            <i class="mdi mdi-shield-lock"></i>
+            <span>Admin PIN</span>
+            <i class="mdi mdi-chevron-right"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="tab-bar">
+      <div class="tab-item active" onclick="showPage('dashboard')">
+        <i class="mdi mdi-view-dashboard"></i>
+        <span>Dashboard</span>
+      </div>
+      <div class="tab-item" onclick="showPage('cameras')">
+        <i class="mdi mdi-cctv"></i>
+        <span>Cameras</span>
+      </div>
+      <div class="tab-item" onclick="showPage('recordings')">
+        <i class="mdi mdi-filmstrip"></i>
+        <span>Recordings</span>
+      </div>
+      <div class="tab-item" onclick="showPage('settings')">
+        <i class="mdi mdi-cog"></i>
+        <span>Settings</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Server Configuration Modal -->
+  <div id="server-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Connect to Server</h3>
+      <p>Enter your edge server address:</p>
+      <input type="text" id="server-url-input" placeholder="http://192.168.1.100:3080">
+      <div class="modal-buttons">
+        <button onclick="closeServerModal()">Cancel</button>
+        <button class="primary" onclick="saveServerUrl()">Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal.hidden { display: none; }
+    .modal-content {
+      background: var(--surface);
+      padding: 24px;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 400px;
+    }
+    .modal-content h3 {
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+    .modal-content p {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .modal-content input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--surface-light);
+      background: var(--background);
+      color: var(--text-primary);
+      font-size: 16px;
+      margin-bottom: 16px;
+    }
+    .modal-buttons {
+      display: flex;
+      gap: 12px;
+    }
+    .modal-buttons button {
+      flex: 1;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .modal-buttons button:first-child {
+      background: var(--surface-light);
+      color: var(--text-secondary);
+    }
+    .modal-buttons button.primary {
+      background: var(--accent);
+      color: white;
+    }
+  </style>
+
+  <script>
+    // Get server URL from URL parameter, localStorage, or use default
+    const urlParams = new URLSearchParams(window.location.search);
+    const savedServer = localStorage.getItem('astro_server_url');
+    const paramServer = urlParams.get('server');
+    
+    let API_BASE = paramServer || savedServer || 'http://localhost:3080/api';
+    
+    // Ensure API_BASE ends with /api
+    if (!API_BASE.endsWith('/api')) {
+      API_BASE = API_BASE.replace(/\/$/, '') + '/api';
+    }
+    
+    let ws;
+    let wsUrl = API_BASE.replace('/api', '').replace('http', 'ws');
+
+    // Show server config modal if no saved server
+    window.addEventListener('load', () => {
+      if (!savedServer && !paramServer) {
+        // Check if localhost works, if not show modal
+        fetch(API_BASE + '/system/health')
+          .then(r => { if (!r.ok) throw new Error(); })
+          .catch(() => {
+            document.getElementById('server-modal').classList.remove('hidden');
+          });
+      }
+      updateServerDisplay();
+    });
+
+    function updateServerDisplay() {
+      const el = document.getElementById('server-address');
+      if (el) {
+        const url = new URL(API_BASE.replace('/api', ''));
+        el.textContent = url.host;
+      }
+    }
+
+    function showServerModal() {
+      document.getElementById('server-url-input').value = API_BASE.replace('/api', '');
+      document.getElementById('server-modal').classList.remove('hidden');
+    }
+
+    function closeServerModal() {
+      document.getElementById('server-modal').classList.add('hidden');
+    }
+
+    function saveServerUrl() {
+      let url = document.getElementById('server-url-input').value.trim();
+      if (!url) return;
+      
+      // Add http if missing
+      if (!url.startsWith('http')) {
+        url = 'http://' + url;
+      }
+      
+      // Remove trailing slash and /api
+      url = url.replace(/\/api\/?$/, '').replace(/\/$/, '');
+      
+      localStorage.setItem('astro_server_url', url + '/api');
+      API_BASE = url + '/api';
+      wsUrl = url.replace('http', 'ws');
+      
+      closeServerModal();
+      updateServerDisplay();
+      
+      // Reconnect
+      if (ws) ws.close();
+      fetchData();
+      connectWebSocket();
+    }
+
+    // Page Navigation
+    function showPage(page) {
+      // Hide all pages
+      document.querySelectorAll('[id^="page-"]').forEach(p => p.classList.add('hidden'));
+      // Show selected page
+      document.getElementById('page-' + page).classList.remove('hidden');
+      
+      // Update tabs
+      document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+      
+      event.target.classList.add('active');
+    }
+
+    // Fetch data from API
+    async function fetchData() {
+      try {
+        // System info
+        const sysRes = await fetch(API_BASE + '/system/info');
+        const sysData = await sysRes.json();
+        
+        if (sysData.uptime) {
+          const hours = Math.floor(sysData.uptime / 3600);
+          const mins = Math.floor((sysData.uptime % 3600) / 60);
+          const uptimeStr = hours > 0 ? hours + 'h ' + mins + 'm' : mins + 'm';
+          document.getElementById('stat-uptime').textContent = uptimeStr;
+          document.getElementById('settings-uptime').textContent = uptimeStr;
+        }
+        
+        // Cameras
+        const camRes = await fetch(API_BASE + '/cameras');
+        const cameras = await camRes.json();
+        document.getElementById('stat-cameras').textContent = cameras.length || 0;
+        document.getElementById('cameras-subtitle').textContent = cameras.length + ' cameras connected';
+        
+        if (cameras.length > 0) {
+          const cameraList = document.getElementById('camera-list');
+          cameraList.innerHTML = cameras.map(cam => `
+            <div class="camera-card">
+              <div class="camera-preview">
+                <i class="mdi mdi-cctv"></i>
+              </div>
+              <div class="camera-info">
+                <div class="camera-name">${cam.name || cam.id}</div>
+                <div class="camera-location">${cam.location || cam.ip || 'Unknown'}</div>
+                <div class="camera-status ${cam.status === 'recording' ? 'recording' : 'online'}">
+                  <div class="camera-status-dot"></div>
+                  ${cam.status || 'Online'}
+                </div>
+              </div>
+            </div>
+          `).join('');
+        }
+        
+        // Recordings
+        const recRes = await fetch(API_BASE + '/recordings');
+        const recordings = await recRes.json();
+        document.getElementById('stat-recordings').textContent = recordings.length || 0;
+        document.getElementById('recordings-subtitle').textContent = recordings.length + ' recordings stored';
+        
+        if (recordings.length > 0) {
+          const recordingsList = document.getElementById('recordings-list');
+          recordingsList.innerHTML = recordings.slice(0, 5).map(rec => `
+            <div class="recording-item">
+              <div class="recording-preview">
+                <i class="mdi mdi-play-circle-outline"></i>
+                <div class="recording-duration">1:00</div>
+              </div>
+              <div class="recording-info">
+                <div class="recording-name">${rec.filename}</div>
+                <div class="recording-meta">${rec.cameraId} • ${new Date(rec.timestamp).toLocaleString()}</div>
+                <div class="recording-actions">
+                  <button class="recording-btn play">
+                    <i class="mdi mdi-play"></i> Play
+                  </button>
+                  <button class="recording-btn download">
+                    <i class="mdi mdi-download"></i> Download
+                  </button>
+                </div>
+              </div>
+            </div>
+          `).join('');
+        }
+        
+        // Storage
+        const storRes = await fetch(API_BASE + '/storage/status');
+        const storage = await storRes.json();
+        const usagePercent = storage.usagePercent ? storage.usagePercent.toFixed(1) + '%' : '0%';
+        document.getElementById('stat-storage').textContent = usagePercent;
+        document.getElementById('settings-storage').textContent = usagePercent;
+        
+        // Alarm
+        const alarmRes = await fetch(API_BASE + '/alarm/status');
+        const alarm = await alarmRes.json();
+        updateAlarmUI(alarm.isActive);
+        
+      } catch (error) {
+        console.log('API fetch error:', error);
+      }
+    }
+
+    function updateAlarmUI(isActive) {
+      const card = document.getElementById('alarm-card');
+      const title = document.getElementById('alarm-title');
+      const icon = document.getElementById('alarm-icon');
+      const phoneFrame = document.querySelector('.phone-frame');
+      
+      if (isActive) {
+        card.classList.remove('safe');
+        card.classList.add('flashing');
+        title.textContent = '🚨 ALARM ACTIVE!';
+        icon.className = 'mdi mdi-alarm-light alarm-icon';
+        phoneFrame.style.boxShadow = '0 25px 80px rgba(255,0,0,0.5), 0 0 0 12px #0a0a14, 0 0 60px rgba(255,0,0,0.3)';
+      } else {
+        card.classList.add('safe');
+        card.classList.remove('flashing');
+        title.textContent = 'All Clear';
+        icon.className = 'mdi mdi-shield-check alarm-icon';
+        phoneFrame.style.boxShadow = '0 25px 80px rgba(0,0,0,0.5), 0 0 0 12px #0a0a14';
+      }
+    }
+
+    // Audio context for alarm sound
+    let audioContext = null;
+    let alarmOscillator = null;
+    let alarmGain = null;
+    let alarmInterval = null;
+
+    function initAudio() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      return audioContext;
+    }
+
+    function playAlarmSound() {
+      try {
+        const ctx = initAudio();
+        if (ctx.state === 'suspended') {
+          ctx.resume();
+        }
+        
+        // Stop any existing alarm
+        stopAlarmSound();
+        
+        // Create oscillator for siren effect
+        alarmOscillator = ctx.createOscillator();
+        alarmGain = ctx.createGain();
+        
+        alarmOscillator.connect(alarmGain);
+        alarmGain.connect(ctx.destination);
+        
+        alarmOscillator.type = 'sawtooth';
+        alarmGain.gain.value = 0.3;
+        
+        alarmOscillator.start();
+        
+        // Siren effect - oscillate between frequencies
+        let freq = 800;
+        let rising = true;
+        alarmInterval = setInterval(() => {
+          if (rising) {
+            freq += 50;
+            if (freq >= 1200) rising = false;
+          } else {
+            freq -= 50;
+            if (freq <= 600) rising = true;
+          }
+          if (alarmOscillator) {
+            alarmOscillator.frequency.setValueAtTime(freq, ctx.currentTime);
+          }
+        }, 50);
+        
+        // Auto-stop after 10 seconds
+        setTimeout(() => {
+          stopAlarmSound();
+          updateAlarmUI(false);
+        }, 10000);
+        
+      } catch (e) {
+        console.log('Audio error:', e);
+      }
+    }
+
+    function stopAlarmSound() {
+      if (alarmInterval) {
+        clearInterval(alarmInterval);
+        alarmInterval = null;
+      }
+      if (alarmOscillator) {
+        try {
+          alarmOscillator.stop();
+          alarmOscillator.disconnect();
+        } catch (e) {}
+        alarmOscillator = null;
+      }
+      if (alarmGain) {
+        try {
+          alarmGain.disconnect();
+        } catch (e) {}
+        alarmGain = null;
+      }
+    }
+
+    async function triggerAlarm() {
+      try {
+        await fetch(API_BASE + '/alarm/trigger', { method: 'POST' });
+        updateAlarmUI(true);
+        playAlarmSound();
+        addEvent('Alarm triggered manually', 'motion');
+      } catch (e) {
+        console.log('Alarm trigger error:', e);
+        // Still play sound even if API fails
+        updateAlarmUI(true);
+        playAlarmSound();
+        addEvent('Alarm triggered (local)', 'motion');
+      }
+    }
+
+    async function stopAlarm() {
+      try {
+        await fetch(API_BASE + '/alarm/stop', { method: 'POST' });
+        updateAlarmUI(false);
+        stopAlarmSound();
+        addEvent('Alarm stopped', 'recording');
+      } catch (e) {
+        console.log('Alarm stop error:', e);
+        // Still stop sound even if API fails
+        updateAlarmUI(false);
+        stopAlarmSound();
+        addEvent('Alarm stopped (local)', 'recording');
+      }
+    }
+
+    async function discoverCameras() {
+      try {
+        addEvent('Camera discovery started', 'motion');
+        const res = await fetch(API_BASE + '/cameras/discover', { method: 'POST' });
+        const data = await res.json();
+        addEvent('Found ' + (data.count || 0) + ' cameras', 'recording');
+        fetchData();
+      } catch (e) {
+        console.log('Discovery error:', e);
+      }
+    }
+
+    function addEvent(title, type) {
+      const list = document.getElementById('events-list');
+      const html = `
+        <div class="event-item">
+          <div class="event-icon ${type}">
+            <i class="mdi mdi-${type === 'motion' ? 'run' : 'check'}"></i>
+          </div>
+          <div class="event-info">
+            <div class="event-title">${title}</div>
+            <div class="event-time">Just now</div>
+          </div>
+        </div>
+      `;
+      list.insertAdjacentHTML('afterbegin', html);
+    }
+
+    // Connect WebSocket
+    function connectWebSocket() {
+      try {
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = () => {
+          console.log('WebSocket connected to', wsUrl);
+          addEvent('Connected to server', 'recording');
+          // Update connection badge
+          document.querySelector('.connection-badge').innerHTML = 
+            '<div class="connection-dot"></div> Connected';
+          document.querySelector('.connection-badge').style.color = 'var(--success)';
+        };
+        
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          console.log('WS message:', data);
+          
+          if (data.type === 'motion.detected') {
+            addEvent('Motion detected on ' + data.payload.cameraId, 'motion');
+            updateAlarmUI(true);
+            playAlarmSound();
+          } else if (data.type === 'recording.started') {
+            addEvent('Recording started on ' + data.payload.cameraId, 'motion');
+          } else if (data.type === 'recording.completed') {
+            addEvent('Recording saved: ' + data.payload.filename, 'recording');
+            fetchData();
+          } else if (data.type === 'alarm.stopped') {
+            updateAlarmUI(false);
+            stopAlarmSound();
+          }
+        };
+        
+        ws.onclose = () => {
+          console.log('WebSocket disconnected');
+          document.querySelector('.connection-badge').innerHTML = 
+            '<div class="connection-dot" style="background:var(--warning)"></div> Reconnecting...';
+          document.querySelector('.connection-badge').style.color = 'var(--warning)';
+          setTimeout(connectWebSocket, 3000);
+        };
+        
+        ws.onerror = () => {
+          document.querySelector('.connection-badge').innerHTML = 
+            '<div class="connection-dot" style="background:var(--danger)"></div> Offline';
+          document.querySelector('.connection-badge').style.color = 'var(--danger)';
+        };
+      } catch (e) {
+        console.log('WebSocket error:', e);
+      }
+    }
+
+    // Initialize
+    fetchData();
+    connectWebSocket();
+    setInterval(fetchData, 10000);
+  </script>
+</body>
+</html>

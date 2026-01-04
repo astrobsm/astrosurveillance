@@ -1,0 +1,42 @@
+{
+  "server": {
+    "port": 3080,
+    "host": "0.0.0.0"
+  },
+  "recording": {
+    "durationSeconds": 60,
+    "resetDelaySeconds": 3,
+    "format": "mp4",
+    "codec": "libx264",
+    "quality": "high"
+  },
+  "motionDetection": {
+    "threshold": 15,
+    "minDurationMs": 300,
+    "minPixelChangePercent": 5,
+    "ignoreShadows": true,
+    "ignoreLightingChanges": true,
+    "sensitivityLevel": "medium"
+  },
+  "alarm": {
+    "durationSeconds": 10,
+    "enabled": true,
+    "volumeLevel": 100
+  },
+  "storage": {
+    "basePath": "./recordings",
+    "maxUsagePercent": 90,
+    "autoCleanup": true,
+    "indexFile": "index.json"
+  },
+  "security": {
+    "adminPin": "1234",
+    "pairingTokenExpiry": 3600,
+    "readOnlyByDefault": true
+  },
+  "cameras": {
+    "discoveryTimeout": 5000,
+    "reconnectInterval": 30000,
+    "maxCameras": 16
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "name": "astrosurveillance-edge-server",
+  "version": "1.0.0",
+  "description": "ASTROSURVEILLANCE Edge Server - Motion-Triggered Factory Surveillance System",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest"
+  },
+  "keywords": [
+    "surveillance",
+    "motion-detection",
+    "factory",
+    "security",
+    "edge-computing"
+  ],
+  "author": "Bonnesante Medicals",
+  "license": "PROPRIETARY",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "uuid": "^9.0.0",
+    "node-onvif": "^0.1.7",
+    "fluent-ffmpeg": "^2.1.2",
+    "ws": "^8.14.2",
+    "qrcode": "^1.5.3",
+    "node-cron": "^3.0.2",
+    "sharp": "^0.32.6",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
