@@ -83,4 +83,19 @@ router.get('/index', (req, res) => {
   });
 });
 
+/**
+ * GET /api/storage/status
+ * Get storage status (alias for /)
+ */
+router.get('/status', (req, res) => {
+  const { storageManager } = req.app.locals.modules;
+  
+  const health = storageManager.getHealth();
+  
+  res.json({
+    code: 'SUCCESS',
+    data: health
+  });
+});
+
 module.exports = router;

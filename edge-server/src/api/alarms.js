@@ -143,4 +143,19 @@ router.put('/config', (req, res) => {
   });
 });
 
+/**
+ * GET /api/alarm/status
+ * Get alarm status (note: singular 'alarm' for compatibility)
+ */
+router.get('/status', (req, res) => {
+  const { alarmController } = req.app.locals.modules;
+  
+  const state = alarmController.getState();
+  
+  res.json({
+    code: 'SUCCESS',
+    data: state
+  });
+});
+
 module.exports = router;
