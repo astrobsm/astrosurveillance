@@ -547,11 +547,14 @@
           </div>
         </div>
         <div class="action-buttons">
+          <button class="action-btn" onclick="openBarcodeScannerModal()">
+            <i class="mdi mdi-barcode-scan"></i> Scan Barcode
+          </button>
           <button class="action-btn" onclick="openQRPairModal()">
             <i class="mdi mdi-qrcode"></i> QR Pair
           </button>
           <button class="action-btn" onclick="openScanModal()">
-            <i class="mdi mdi-qrcode-scan"></i> Add Manual
+            <i class="mdi mdi-plus"></i> Manual
           </button>
           <button class="action-btn" onclick="discoverCameras()">
             <i class="mdi mdi-magnify"></i> Discover
@@ -619,6 +622,67 @@
       <div class="modal-buttons">
         <button onclick="closeScanModal()">Cancel</button>
         <button class="primary" onclick="addScannedCamera()">
+          <i class="mdi mdi-plus"></i> Add Camera
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barcode Scanner Modal -->
+  <div id="barcode-scanner-modal" class="modal hidden">
+    <div class="modal-content" style="max-width: 500px;">
+      <h3><i class="mdi mdi-barcode-scan"></i> Scan Camera Barcode</h3>
+      <p>Use your device camera to scan the barcode/QR code on your GZ-SONY MAKE.BELIEVE camera.</p>
+      
+      <!-- Camera Video Feed -->
+      <div id="scanner-container" style="margin: 16px 0; border-radius: 12px; overflow: hidden; background: #000; position: relative;">
+        <video id="barcode-video" style="width: 100%; display: block;" autoplay playsinline muted></video>
+        <div id="scanner-line" style="position: absolute; top: 50%; left: 10%; width: 80%; height: 2px; background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: scanLine 2s infinite;"></div>
+        <div id="scanner-overlay" class="hidden" style="text-align: center; padding: 60px 20px; color: var(--text-muted); position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--surface-light);">
+          <i class="mdi mdi-camera-off" style="font-size: 48px;"></i>
+          <p style="margin-top: 12px;">Camera access not available</p>
+          <p style="font-size: 12px;">Please allow camera access or enter data manually below</p>
+        </div>
+      </div>
+      
+      <style>
+        @keyframes scanLine {
+          0%, 100% { top: 30%; opacity: 1; }
+          50% { top: 70%; opacity: 0.5; }
+        }
+      </style>
+      
+      <!-- Scanner Status -->
+      <div id="barcode-status" style="text-align: center; padding: 12px; background: var(--surface-light); border-radius: 8px; margin-bottom: 12px;">
+        <i class="mdi mdi-barcode-scan" style="margin-right: 8px;"></i>
+        <span id="barcode-status-text">Position barcode within the frame</span>
+      </div>
+      
+      <!-- Detected Data Display -->
+      <div id="detected-data" class="hidden" style="margin-bottom: 12px; padding: 12px; background: var(--background); border-radius: 8px; border: 2px solid var(--success);">
+        <div style="font-size: 12px; color: var(--success); margin-bottom: 4px;"><i class="mdi mdi-check-circle"></i> Barcode Detected!</div>
+        <code id="detected-data-text" style="font-size: 11px; word-break: break-all; color: var(--text-secondary);"></code>
+      </div>
+      
+      <!-- Manual Input Fallback -->
+      <div style="margin-top: 12px;">
+        <div style="text-align: center; color: var(--text-muted); font-size: 12px; margin-bottom: 8px;">— OR ENTER MANUALLY —</div>
+        <input type="text" id="barcode-manual-input" placeholder="Paste barcode data or camera info here..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--surface-light); background: var(--background); color: var(--text-primary); font-family: monospace; font-size: 12px;">
+      </div>
+      
+      <!-- Supported Formats -->
+      <div style="margin-top: 12px; padding: 12px; background: var(--background); border-radius: 8px; font-size: 11px; color: var(--text-muted);">
+        <strong>Supported formats:</strong>
+        <ul style="margin: 4px 0 0 16px; padding: 0;">
+          <li>QR/JSON: {"ip":"...","user":"...","pass":"..."}</li>
+          <li>RTSP URL: rtsp://user:pass@192.168.1.100/stream</li>
+          <li>Simple: 192.168.1.100:554:admin:password</li>
+        </ul>
+      </div>
+      
+      <div class="modal-buttons" style="margin-top: 16px;">
+        <button onclick="closeBarcodeScannerModal()">Cancel</button>
+        <button class="primary" onclick="addBarcodeCamera()">
           <i class="mdi mdi-plus"></i> Add Camera
         </button>
       </div>
@@ -1192,6 +1256,171 @@
       if (remaining <= 0) {
         clearInterval(countdownInterval);
         document.getElementById('qr-countdown').textContent = 'Expired';
+      }
+    }
+
+    // =============================================
+    // BARCODE SCANNER FUNCTIONALITY
+    // =============================================
+    
+    let barcodeStream = null;
+    let barcodeDetector = null;
+    let barcodeScanning = false;
+    let detectedBarcodeData = null;
+    
+    function openBarcodeScannerModal() {
+      document.getElementById('barcode-scanner-modal').classList.remove('hidden');
+      document.getElementById('detected-data').classList.add('hidden');
+      document.getElementById('barcode-manual-input').value = '';
+      detectedBarcodeData = null;
+      startBarcodeScanner();
+    }
+    
+    function closeBarcodeScannerModal() {
+      document.getElementById('barcode-scanner-modal').classList.add('hidden');
+      stopBarcodeScanner();
+      detectedBarcodeData = null;
+    }
+    
+    async function startBarcodeScanner() {
+      const video = document.getElementById('barcode-video');
+      const overlay = document.getElementById('scanner-overlay');
+      const status = document.getElementById('barcode-status-text');
+      const scanLine = document.getElementById('scanner-line');
+      
+      try {
+        // Request camera access - prefer back camera for scanning
+        barcodeStream = await navigator.mediaDevices.getUserMedia({
+          video: { 
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        });
+        
+        video.srcObject = barcodeStream;
+        video.style.display = 'block';
+        overlay.classList.add('hidden');
+        scanLine.style.display = 'block';
+        barcodeScanning = true;
+        
+        status.textContent = 'Scanning... Position barcode in frame';
+        document.getElementById('barcode-status').style.color = 'var(--success)';
+        
+        // Start barcode detection
+        if ('BarcodeDetector' in window) {
+          barcodeDetector = new BarcodeDetector({
+            formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8', 'data_matrix', 'codabar', 'itf']
+          });
+          detectBarcodes(video);
+        } else {
+          status.textContent = 'Auto-detection not supported - enter data manually below';
+          document.getElementById('barcode-status').style.color = 'var(--warning)';
+        }
+        
+      } catch (error) {
+        console.log('Camera access error:', error);
+        video.style.display = 'none';
+        overlay.classList.remove('hidden');
+        scanLine.style.display = 'none';
+        status.textContent = 'Camera not available - enter data manually';
+        document.getElementById('barcode-status').style.color = 'var(--warning)';
+      }
+    }
+    
+    function stopBarcodeScanner() {
+      barcodeScanning = false;
+      if (barcodeStream) {
+        barcodeStream.getTracks().forEach(track => track.stop());
+        barcodeStream = null;
+      }
+    }
+    
+    async function detectBarcodes(video) {
+      if (!barcodeScanning || !barcodeDetector) return;
+      
+      try {
+        const barcodes = await barcodeDetector.detect(video);
+        
+        if (barcodes.length > 0) {
+          const barcode = barcodes[0];
+          console.log('Barcode detected:', barcode.rawValue);
+          
+          // Show detected data
+          detectedBarcodeData = barcode.rawValue;
+          document.getElementById('detected-data').classList.remove('hidden');
+          document.getElementById('detected-data-text').textContent = barcode.rawValue;
+          document.getElementById('barcode-manual-input').value = barcode.rawValue;
+          
+          // Update status
+          document.getElementById('barcode-status-text').textContent = 'Barcode detected! Click "Add Camera" to continue.';
+          document.getElementById('barcode-status').style.color = 'var(--success)';
+          
+          // Play success sound
+          try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 800;
+            gain.gain.value = 0.1;
+            osc.start();
+            setTimeout(() => { osc.frequency.value = 1000; }, 100);
+            setTimeout(() => { osc.stop(); }, 200);
+          } catch (e) {}
+          
+          // Vibrate if available
+          if (navigator.vibrate) {
+            navigator.vibrate(200);
+          }
+          
+          return; // Stop scanning after detection
+        }
+      } catch (e) {
+        console.log('Detection error:', e);
+      }
+      
+      // Continue scanning
+      if (barcodeScanning) {
+        requestAnimationFrame(() => detectBarcodes(video));
+      }
+    }
+    
+    async function addBarcodeCamera() {
+      const scanData = document.getElementById('barcode-manual-input').value.trim() || detectedBarcodeData;
+      
+      if (!scanData) {
+        alert('No barcode data detected. Please scan a barcode or enter data manually.');
+        return;
+      }
+      
+      try {
+        document.getElementById('barcode-status-text').textContent = 'Adding camera...';
+        document.getElementById('barcode-status').style.color = 'var(--warning)';
+        
+        const res = await fetch(API_BASE + '/cameras/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scanData: scanData })
+        });
+        
+        const data = await res.json();
+        
+        if (data.code === 'SUCCESS') {
+          addEvent('Camera added via barcode: ' + (data.data.camera.name || data.data.camera.id), 'recording');
+          closeBarcodeScannerModal();
+          fetchData();
+          alert('GZ-SONY MAKE.BELIEVE camera added successfully!');
+        } else {
+          throw new Error(data.message || 'Failed to add camera');
+        }
+        
+      } catch (error) {
+        console.log('Add camera error:', error);
+        document.getElementById('barcode-status-text').textContent = 'Error: ' + error.message;
+        document.getElementById('barcode-status').style.color = 'var(--danger)';
+        alert('Failed to add camera: ' + error.message);
       }
     }
   </script>
