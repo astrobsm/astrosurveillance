@@ -1640,14 +1640,49 @@
     let wifiCameraConnected = false;
     let wifiNewCameraIP = null;
     
+    // Voice feedback function using Web Speech API
+    function speak(message, priority = false) {
+      if ('speechSynthesis' in window) {
+        // Cancel current speech if priority message
+        if (priority) {
+          window.speechSynthesis.cancel();
+        }
+        
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.rate = 0.9;  // Slightly slower for clarity
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        
+        // Try to use a female voice if available
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v => v.lang.startsWith('en') && v.name.includes('Female')) ||
+                               voices.find(v => v.lang.startsWith('en')) ||
+                               voices[0];
+        if (preferredVoice) {
+          utterance.voice = preferredVoice;
+        }
+        
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+    
+    // Load voices when available
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+    }
+    
     function openWiFiSetupModal() {
       document.getElementById('wifi-setup-modal').classList.remove('hidden');
       resetWiFiSetup();
+      speak('WiFi Camera Setup. Welcome! Please connect to your camera\'s WiFi access point to begin.', true);
     }
     
     function closeWiFiSetupModal() {
       document.getElementById('wifi-setup-modal').classList.add('hidden');
       resetWiFiSetup();
+      window.speechSynthesis.cancel();
     }
     
     function resetWiFiSetup() {
@@ -1679,6 +1714,13 @@
     function setWiFiStep(step) {
       wifiCurrentStep = step;
       
+      // Voice feedback for each step
+      if (step === 2) {
+        speak('Step 2: WiFi Configuration. Please enter your WiFi network name and password, then click Configure WiFi.');
+      } else if (step === 3) {
+        speak('Step 3: Setup Complete.');
+      }
+      
       // Update step indicators
       for (let i = 1; i <= 3; i++) {
         const stepEl = document.getElementById('wifi-step-' + i);
@@ -1700,6 +1742,7 @@
       
       statusEl.innerHTML = '<i class="mdi mdi-loading mdi-spin"></i> Checking connection...';
       statusEl.style.color = 'var(--warning)';
+      speak('Checking camera connection. Please wait.', true);
       
       try {
         // Try to reach the camera
@@ -1715,6 +1758,7 @@
           wifiCameraConnected = true;
           statusEl.innerHTML = '<i class="mdi mdi-check-circle"></i> Camera found!';
           statusEl.style.color = 'var(--success)';
+          speak('Camera found successfully! Moving to WiFi configuration.', true);
           
           // Move to step 2
           setTimeout(() => setWiFiStep(2), 1000);
@@ -1726,6 +1770,7 @@
         // For demo, allow proceeding anyway
         statusEl.innerHTML = '<i class="mdi mdi-alert"></i> Could not verify - proceeding anyway...';
         statusEl.style.color = 'var(--warning)';
+        speak('Could not verify camera connection. Proceeding to WiFi configuration anyway.', true);
         
         setTimeout(() => setWiFiStep(2), 1500);
       }
@@ -1735,6 +1780,7 @@
       const listEl = document.getElementById('wifi-networks-list');
       listEl.classList.remove('hidden');
       listEl.innerHTML = '<div style="padding: 16px; text-align: center;"><i class="mdi mdi-loading mdi-spin"></i> Scanning...</div>';
+      speak('Scanning for available WiFi networks.', true);
       
       try {
         const res = await fetch(API_BASE + '/cameras/wifi/scan', {
@@ -1748,6 +1794,7 @@
         const data = await res.json();
         
         if (data.code === 'SUCCESS' && data.networks) {
+          speak('Found ' + data.networks.length + ' WiFi networks. Please select one.');
           listEl.innerHTML = data.networks.map(net => `
             <div onclick="selectWiFiNetwork('${net.ssid}')" style="padding: 12px; border-bottom: 1px solid var(--surface-light); cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
               <span>${net.ssid}</span>
@@ -1763,6 +1810,7 @@
         
       } catch (error) {
         // Show sample networks for demo
+        speak('Found 3 WiFi networks. Please select one.');
         listEl.innerHTML = `
           <div onclick="selectWiFiNetwork('Bonnesante_WiFi')" style="padding: 12px; border-bottom: 1px solid var(--surface-light); cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
             <span>Bonnesante_WiFi</span>
@@ -1783,6 +1831,7 @@
     function selectWiFiNetwork(ssid) {
       document.getElementById('wifi-ssid').value = ssid;
       document.getElementById('wifi-networks-list').classList.add('hidden');
+      speak('Selected network: ' + ssid + '. Please enter the WiFi password.');
     }
     
     function toggleWiFiPassword() {
@@ -1816,14 +1865,18 @@
       const useDHCP = document.getElementById('wifi-dhcp').checked;
       
       if (!ssid) {
+        speak('Please enter the WiFi network name.');
         alert('Please enter WiFi network name (SSID)');
         return;
       }
       
       if (!password) {
+        speak('Please enter the WiFi password.');
         alert('Please enter WiFi password');
         return;
       }
+      
+      speak('Configuring WiFi connection. Please wait, this may take a moment.', true);
       
       try {
         const res = await fetch(API_BASE + '/cameras/wifi/configure', {
@@ -1855,6 +1908,8 @@
           setWiFiStep(3);
           document.getElementById('wifi-add-btn').classList.remove('hidden');
           
+          speak('WiFi configuration successful! Camera ' + camName + ' is now connected to ' + ssid + '. New IP address is ' + wifiNewCameraIP + '. Click Add to Dashboard to complete setup.', true);
+          
           addEvent('WiFi configured for camera: ' + camName, 'recording');
         } else {
           throw new Error(data.message || 'Configuration failed');
@@ -1871,6 +1926,8 @@
         setWiFiStep(3);
         document.getElementById('wifi-add-btn').classList.remove('hidden');
         
+        speak('WiFi configuration complete! Camera ' + camName + ' is now connected. New IP address is ' + wifiNewCameraIP + '. Click Add to Dashboard to complete setup.', true);
+        
         addEvent('WiFi configured for camera: ' + camName, 'recording');
       }
     }
@@ -1878,6 +1935,8 @@
     async function addWiFiCamera() {
       const camName = document.getElementById('wifi-cam-name').value.trim() || 'GZ-SONY MAKE.BELIEVE';
       const camLocation = document.getElementById('wifi-cam-location').value.trim();
+      
+      speak('Adding camera to dashboard. Please wait.', true);
       
       try {
         const res = await fetch(API_BASE + '/cameras/scan', {
@@ -1897,6 +1956,7 @@
         const data = await res.json();
         
         if (data.code === 'SUCCESS') {
+          speak('Success! ' + camName + ' camera has been added to the dashboard. You can now monitor this camera.', true);
           addEvent('WiFi camera added: ' + camName, 'recording');
           closeWiFiSetupModal();
           fetchData();
@@ -1907,6 +1967,7 @@
         
       } catch (error) {
         console.log('Add WiFi camera error:', error);
+        speak('Error adding camera to dashboard. ' + error.message, true);
         alert('Camera connected to WiFi but could not add to dashboard: ' + error.message);
       }
     }
