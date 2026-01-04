@@ -755,10 +755,16 @@
             <div class="header-title">Cameras</div>
             <div class="header-subtitle" id="cameras-subtitle">0 cameras connected</div>
           </div>
-          <button class="alarm-btn trigger" style="padding: 10px 16px;" onclick="discoverCameras()">
-            <i class="mdi mdi-magnify"></i>
-            Discover
-          </button>
+          <div style="display: flex; gap: 8px;">
+            <button class="alarm-btn trigger" style="padding: 10px 16px;" onclick="openScanModal()">
+              <i class="mdi mdi-qrcode-scan"></i>
+              Scan
+            </button>
+            <button class="alarm-btn trigger" style="padding: 10px 16px;" onclick="discoverCameras()">
+              <i class="mdi mdi-magnify"></i>
+              Discover
+            </button>
+          </div>
         </div>
 
         <div class="camera-list" id="camera-list">
@@ -768,7 +774,7 @@
             </div>
             <div class="camera-info">
               <div class="camera-name">No Cameras</div>
-              <div class="camera-location">Add cameras via ONVIF discovery</div>
+              <div class="camera-location">Scan barcode or use ONVIF discovery</div>
               <div class="camera-status">
                 <div class="camera-status-dot"></div>
                 Waiting...
@@ -778,8 +784,9 @@
         </div>
 
         <div class="page-info">
-          <h3>Camera Discovery</h3>
-          <p>Connect ONVIF-compatible cameras to your network and click Discover to find them automatically.</p>
+          <h3>Add Cameras</h3>
+          <p><strong>Scan Barcode:</strong> Scan the QR code on your camera to add it instantly.</p>
+          <p style="margin-top: 8px;"><strong>ONVIF Discovery:</strong> Connect cameras to your network and click Discover.</p>
         </div>
       </div>
 
@@ -918,6 +925,89 @@
       <div class="modal-buttons">
         <button onclick="closeServerModal()">Cancel</button>
         <button class="primary" onclick="saveServerUrl()">Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Camera Barcode Scanner Modal -->
+  <div id="scan-modal" class="modal hidden">
+    <div class="modal-content" style="max-width: 450px;">
+      <h3><i class="mdi mdi-qrcode-scan"></i> Scan Camera Barcode</h3>
+      <p>Scan the QR code/barcode on your camera, or enter data manually.</p>
+      
+      <!-- Camera Scanner -->
+      <div id="scanner-container" style="margin: 16px 0; border-radius: 12px; overflow: hidden; background: #000;">
+        <video id="scanner-video" style="width: 100%; display: block;" autoplay playsinline></video>
+        <div id="scanner-overlay" style="text-align: center; padding: 60px 20px; color: var(--text-muted); display: none;">
+          <i class="mdi mdi-camera-off" style="font-size: 48px;"></i>
+          <p style="margin-top: 12px;">Camera access not available</p>
+        </div>
+      </div>
+      
+      <!-- Scanner Status -->
+      <div id="scanner-status" style="text-align: center; color: var(--text-muted); font-size: 12px; margin-bottom: 12px;">
+        Position the QR code within the camera view
+      </div>
+      
+      <!-- Manual Input Toggle -->
+      <div style="text-align: center; margin-bottom: 12px;">
+        <button class="page-tab" onclick="toggleManualInput()" style="font-size: 12px;">
+          <i class="mdi mdi-keyboard"></i> Enter Manually
+        </button>
+      </div>
+      
+      <!-- Manual Input Form (Hidden by default) -->
+      <div id="manual-input" class="hidden">
+        <div style="margin-bottom: 12px;">
+          <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Camera IP Address *</label>
+          <input type="text" id="cam-ip" placeholder="192.168.1.100" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-light); background: var(--background); color: var(--text-primary);">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div>
+            <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Username</label>
+            <input type="text" id="cam-user" placeholder="admin" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-light); background: var(--background); color: var(--text-primary);">
+          </div>
+          <div>
+            <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Password</label>
+            <input type="password" id="cam-pass" placeholder="password" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-light); background: var(--background); color: var(--text-primary);">
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div>
+            <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Camera Name</label>
+            <input type="text" id="cam-name" placeholder="Factory Entrance" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-light); background: var(--background); color: var(--text-primary);">
+          </div>
+          <div>
+            <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Location</label>
+            <input type="text" id="cam-location" placeholder="Building A" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-light); background: var(--background); color: var(--text-primary);">
+          </div>
+        </div>
+      </div>
+      
+      <!-- Or paste barcode data directly -->
+      <div style="margin-bottom: 16px;">
+        <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Or paste barcode data:</label>
+        <input type="text" id="scan-data-input" placeholder='{"ip":"192.168.1.100","username":"admin","password":"..."}' style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-light); background: var(--background); color: var(--text-primary); font-family: monospace; font-size: 11px;">
+      </div>
+      
+      <div class="modal-buttons">
+        <button onclick="closeScanModal()">Cancel</button>
+        <button class="primary" onclick="addScannedCamera()">
+          <i class="mdi mdi-plus"></i> Add Camera
+        </button>
+      </div>
+      
+      <!-- Supported Formats Info -->
+      <div style="margin-top: 16px; padding: 12px; background: var(--background); border-radius: 8px;">
+        <div style="font-size: 11px; color: var(--text-muted);">
+          <strong>Supported barcode formats:</strong>
+          <ul style="margin: 8px 0 0 16px; padding: 0;">
+            <li>JSON: {"ip":"...","username":"...","password":"..."}</li>
+            <li>RTSP: rtsp://user:pass@ip:554/stream</li>
+            <li>ONVIF: ONVIF:ip:port:user:pass:name</li>
+            <li>Simple: ip:port:user:pass:name</li>
+          </ul>
+        </div>
       </div>
     </div>
   </div>
@@ -1372,6 +1462,189 @@
     fetchData();
     connectWebSocket();
     setInterval(fetchData, 10000);
+
+    // =============================================
+    // BARCODE SCANNER FUNCTIONALITY
+    // =============================================
+    
+    let scannerStream = null;
+    let scannerActive = false;
+    
+    function openScanModal() {
+      document.getElementById('scan-modal').classList.remove('hidden');
+      startScanner();
+    }
+    
+    function closeScanModal() {
+      document.getElementById('scan-modal').classList.add('hidden');
+      stopScanner();
+      // Reset form
+      document.getElementById('scan-data-input').value = '';
+      document.getElementById('cam-ip').value = '';
+      document.getElementById('cam-user').value = '';
+      document.getElementById('cam-pass').value = '';
+      document.getElementById('cam-name').value = '';
+      document.getElementById('cam-location').value = '';
+      document.getElementById('manual-input').classList.add('hidden');
+    }
+    
+    function toggleManualInput() {
+      document.getElementById('manual-input').classList.toggle('hidden');
+    }
+    
+    async function startScanner() {
+      const video = document.getElementById('scanner-video');
+      const overlay = document.getElementById('scanner-overlay');
+      const status = document.getElementById('scanner-status');
+      
+      try {
+        // Request camera access
+        scannerStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' }
+        });
+        
+        video.srcObject = scannerStream;
+        video.style.display = 'block';
+        overlay.style.display = 'none';
+        scannerActive = true;
+        
+        status.textContent = 'Position the QR code within the camera view';
+        status.style.color = 'var(--success)';
+        
+        // Start barcode detection if available
+        if ('BarcodeDetector' in window) {
+          detectBarcodes(video);
+        } else {
+          status.textContent = 'Barcode detection not supported - please enter data manually';
+          status.style.color = 'var(--warning)';
+        }
+        
+      } catch (error) {
+        console.log('Camera access error:', error);
+        video.style.display = 'none';
+        overlay.style.display = 'block';
+        status.textContent = 'Enter camera details manually below';
+        status.style.color = 'var(--text-muted)';
+        // Show manual input form
+        document.getElementById('manual-input').classList.remove('hidden');
+      }
+    }
+    
+    function stopScanner() {
+      scannerActive = false;
+      if (scannerStream) {
+        scannerStream.getTracks().forEach(track => track.stop());
+        scannerStream = null;
+      }
+    }
+    
+    async function detectBarcodes(video) {
+      if (!scannerActive) return;
+      
+      try {
+        const barcodeDetector = new BarcodeDetector({
+          formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8', 'data_matrix']
+        });
+        
+        const detect = async () => {
+          if (!scannerActive) return;
+          
+          try {
+            const barcodes = await barcodeDetector.detect(video);
+            
+            if (barcodes.length > 0) {
+              const barcode = barcodes[0];
+              console.log('Barcode detected:', barcode.rawValue);
+              
+              // Fill the input and process
+              document.getElementById('scan-data-input').value = barcode.rawValue;
+              document.getElementById('scanner-status').textContent = '✓ Barcode detected!';
+              document.getElementById('scanner-status').style.color = 'var(--success)';
+              
+              // Auto-add the camera
+              await addScannedCamera();
+              return;
+            }
+          } catch (e) {
+            console.log('Detection error:', e);
+          }
+          
+          // Continue scanning
+          if (scannerActive) {
+            requestAnimationFrame(detect);
+          }
+        };
+        
+        // Wait for video to be ready
+        if (video.readyState >= 2) {
+          detect();
+        } else {
+          video.addEventListener('loadeddata', detect, { once: true });
+        }
+        
+      } catch (error) {
+        console.log('BarcodeDetector error:', error);
+        document.getElementById('scanner-status').textContent = 'Scanning... (manual entry available below)';
+      }
+    }
+    
+    async function addScannedCamera() {
+      const scanData = document.getElementById('scan-data-input').value.trim();
+      const camIp = document.getElementById('cam-ip').value.trim();
+      const camUser = document.getElementById('cam-user').value.trim();
+      const camPass = document.getElementById('cam-pass').value.trim();
+      const camName = document.getElementById('cam-name').value.trim();
+      const camLocation = document.getElementById('cam-location').value.trim();
+      
+      let payload;
+      
+      if (scanData) {
+        // Use scanned/pasted data
+        payload = { scanData: scanData };
+      } else if (camIp) {
+        // Use manual input
+        payload = {
+          scanData: JSON.stringify({
+            ip: camIp,
+            username: camUser || 'admin',
+            password: camPass || 'admin',
+            name: camName || 'Camera ' + camIp,
+            location: camLocation || 'Unknown'
+          })
+        };
+      } else {
+        alert('Please scan a barcode or enter camera details');
+        return;
+      }
+      
+      try {
+        document.getElementById('scanner-status').textContent = 'Adding camera...';
+        document.getElementById('scanner-status').style.color = 'var(--warning)';
+        
+        const res = await fetch(API_BASE + '/cameras/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        const data = await res.json();
+        
+        if (data.code === 'SUCCESS') {
+          addEvent('Camera added: ' + (data.data.camera.name || data.data.camera.id), 'recording');
+          closeScanModal();
+          fetchData();
+          alert('Camera added successfully!');
+        } else {
+          throw new Error(data.message || 'Failed to add camera');
+        }
+        
+      } catch (error) {
+        console.log('Add camera error:', error);
+        document.getElementById('scanner-status').textContent = 'Error: ' + error.message;
+        document.getElementById('scanner-status').style.color = 'var(--danger)';
+        alert('Failed to add camera: ' + error.message);
+      }
+    }
   </script>
 </body>
 </html>

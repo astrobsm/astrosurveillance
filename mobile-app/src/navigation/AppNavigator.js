@@ -16,6 +16,7 @@ import { colors } from '../utils/theme';
 import DashboardScreen from '../screens/DashboardScreen';
 import CameraListScreen from '../screens/CameraListScreen';
 import CameraDetailScreen from '../screens/CameraDetailScreen';
+import CameraScannerScreen from '../screens/CameraScannerScreen';
 import RecordingsScreen from '../screens/RecordingsScreen';
 import RecordingPlayerScreen from '../screens/RecordingPlayerScreen';
 import SettingsScreen from '../screens/SettingsScreen';
@@ -44,6 +45,11 @@ function CameraStack() {
         name="CameraDetail" 
         component={CameraDetailScreen}
         options={({ route }) => ({ title: route.params?.cameraName || 'Camera' })}
+      />
+      <Stack.Screen 
+        name="CameraScanner" 
+        component={CameraScannerScreen}
+        options={{ title: 'Scan Camera Barcode' }}
       />
     </Stack.Navigator>
   );

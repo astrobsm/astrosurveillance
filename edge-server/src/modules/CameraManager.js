@@ -249,6 +249,137 @@ class CameraManager extends EventEmitter {
   }
   
   /**
+   * Add camera from scanned barcode/QR code data
+   * Barcode format: JSON with {ip, username, password, name, location}
+   * or URL format: rtsp://username:password@ip:port/stream
+   * @param {string|Object} scanData - Scanned barcode data
+   * @returns {Object} Registered camera
+   */
+  addCameraFromScan(scanData) {
+    let cameraData;
+    
+    try {
+      // Try to parse as JSON first
+      if (typeof scanData === 'string') {
+        // Check if it's a JSON string
+        if (scanData.startsWith('{')) {
+          cameraData = JSON.parse(scanData);
+        }
+        // Check if it's an RTSP URL
+        else if (scanData.startsWith('rtsp://')) {
+          cameraData = this._parseRtspUrl(scanData);
+        }
+        // Check if it's ONVIF camera data (format: ONVIF:ip:port:user:pass)
+        else if (scanData.startsWith('ONVIF:')) {
+          cameraData = this._parseOnvifBarcode(scanData);
+        }
+        // Try parsing as colon-separated values (ip:port:user:pass:name)
+        else {
+          cameraData = this._parseSimpleBarcode(scanData);
+        }
+      } else {
+        cameraData = scanData;
+      }
+      
+      // Validate required fields
+      if (!cameraData.ip && !cameraData.rtspUrl) {
+        throw new Error('Camera IP or RTSP URL is required');
+      }
+      
+      // Generate camera ID and construct URLs
+      const cameraId = this.generateCameraId();
+      const ip = cameraData.ip;
+      const port = cameraData.port || 554;
+      const username = cameraData.username || 'admin';
+      const password = cameraData.password || 'admin';
+      
+      const camera = {
+        id: cameraId,
+        name: cameraData.name || `Camera ${ip}`,
+        location: cameraData.location || 'Scanned Camera',
+        rtspUrl: cameraData.rtspUrl || `rtsp://${username}:${password}@${ip}:${port}/stream1`,
+        onvifUrl: cameraData.onvifUrl || `http://${ip}:${cameraData.onvifPort || 80}/onvif/device_service`,
+        credentials: {
+          username,
+          password
+        }
+      };
+      
+      Logger.info('Camera added from barcode scan', { cameraId, ip });
+      
+      return this.registerCamera(camera);
+      
+    } catch (error) {
+      Logger.error('Failed to parse camera barcode', { error: error.message, scanData });
+      throw new Error(`Invalid barcode format: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Parse RTSP URL to camera data
+   * @private
+   */
+  _parseRtspUrl(url) {
+    const urlPattern = /rtsp:\/\/([^:]+):([^@]+)@([^:\/]+):?(\d+)?\/?(.*)/;
+    const match = url.match(urlPattern);
+    
+    if (!match) {
+      throw new Error('Invalid RTSP URL format');
+    }
+    
+    return {
+      username: match[1],
+      password: match[2],
+      ip: match[3],
+      port: match[4] || 554,
+      rtspUrl: url
+    };
+  }
+  
+  /**
+   * Parse ONVIF barcode format
+   * Format: ONVIF:ip:port:username:password:name
+   * @private
+   */
+  _parseOnvifBarcode(barcode) {
+    const parts = barcode.split(':');
+    
+    if (parts.length < 5) {
+      throw new Error('Invalid ONVIF barcode format');
+    }
+    
+    return {
+      ip: parts[1],
+      onvifPort: parseInt(parts[2]) || 80,
+      username: parts[3],
+      password: parts[4],
+      name: parts[5] || `ONVIF Camera ${parts[1]}`
+    };
+  }
+  
+  /**
+   * Parse simple barcode format
+   * Format: ip:port:username:password:name:location
+   * @private
+   */
+  _parseSimpleBarcode(barcode) {
+    const parts = barcode.split(':');
+    
+    if (parts.length < 1) {
+      throw new Error('Invalid barcode format');
+    }
+    
+    return {
+      ip: parts[0],
+      port: parts[1] ? parseInt(parts[1]) : 554,
+      username: parts[2] || 'admin',
+      password: parts[3] || 'admin',
+      name: parts[4] || `Camera ${parts[0]}`,
+      location: parts[5] || 'Unknown'
+    };
+  }
+  
+  /**
    * Export cameras configuration
    * @returns {Object}
    */

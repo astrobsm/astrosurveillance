@@ -267,4 +267,97 @@ router.post('/:id/test-motion', (req, res) => {
   });
 });
 
+/**
+ * POST /api/cameras/scan
+ * Add a camera by scanning barcode/QR code
+ * 
+ * Supported barcode formats:
+ * 1. JSON: {"ip":"192.168.1.100","username":"admin","password":"pass123","name":"Factory Cam 1"}
+ * 2. RTSP URL: rtsp://admin:pass123@192.168.1.100:554/stream1
+ * 3. ONVIF format: ONVIF:192.168.1.100:80:admin:pass123:Camera Name
+ * 4. Simple format: 192.168.1.100:554:admin:pass123:Camera Name:Factory Floor
+ */
+router.post('/scan', (req, res) => {
+  const { cameraManager, motionDetector, recordingController } = req.app.locals.modules;
+  const { scanData, barcodeData, rawData } = req.body;
+  
+  // Accept different field names for the scanned data
+  const data = scanData || barcodeData || rawData;
+  
+  if (!data) {
+    return res.status(400).json({
+      code: 'ERROR',
+      message: 'Scanned data is required. Provide scanData, barcodeData, or rawData field.'
+    });
+  }
+  
+  try {
+    // Use the addCameraFromScan method
+    const camera = cameraManager.addCameraFromScan(data);
+    
+    // Attach to motion detector and recording controller
+    motionDetector.attachCamera(camera);
+    recordingController.registerCamera(camera.id, camera.rtspUrl);
+    
+    res.status(201).json({
+      code: 'SUCCESS',
+      message: 'Camera added successfully from barcode scan',
+      data: {
+        camera,
+        instructions: 'Camera registered and monitoring started'
+      }
+    });
+  } catch (err) {
+    res.status(400).json({
+      code: 'ERROR',
+      message: err.message,
+      supportedFormats: [
+        'JSON: {"ip":"...","username":"...","password":"..."}',
+        'RTSP: rtsp://user:pass@ip:port/stream',
+        'ONVIF: ONVIF:ip:port:user:pass:name',
+        'Simple: ip:port:user:pass:name:location'
+      ]
+    });
+  }
+});
+
+/**
+ * GET /api/cameras/scan/formats
+ * Get supported barcode formats documentation
+ */
+router.get('/scan/formats', (req, res) => {
+  res.json({
+    code: 'SUCCESS',
+    data: {
+      description: 'Supported barcode/QR code formats for camera registration',
+      formats: [
+        {
+          name: 'JSON Format',
+          example: '{"ip":"192.168.1.100","username":"admin","password":"admin123","name":"Factory Entrance","location":"Building A"}',
+          required: ['ip'],
+          optional: ['username', 'password', 'name', 'location', 'port', 'rtspUrl', 'onvifUrl']
+        },
+        {
+          name: 'RTSP URL Format',
+          example: 'rtsp://admin:pass123@192.168.1.100:554/stream1',
+          description: 'Standard RTSP URL format with embedded credentials'
+        },
+        {
+          name: 'ONVIF Barcode Format',
+          example: 'ONVIF:192.168.1.100:80:admin:pass123:Production Line Camera',
+          format: 'ONVIF:ip:onvif_port:username:password:camera_name',
+          description: 'Colon-separated format starting with ONVIF prefix'
+        },
+        {
+          name: 'Simple Barcode Format',
+          example: '192.168.1.100:554:admin:pass123:Warehouse Cam:Loading Dock',
+          format: 'ip:rtsp_port:username:password:name:location',
+          description: 'Simple colon-separated format (missing values use defaults)'
+        }
+      ],
+      qrCodeGenerator: 'Use any QR code generator to create stickers for your cameras'
+    }
+  });
+});
+
 module.exports = router;

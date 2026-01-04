@@ -111,8 +111,15 @@ const CameraListScreen = ({ navigation }) => {
       <Text style={styles.emptyTitle}>No Cameras</Text>
       <Text style={styles.emptyText}>
         No cameras have been registered yet.{'\n'}
-        Use the server to discover and add cameras.
+        Scan a camera barcode or use ONVIF discovery.
       </Text>
+      <TouchableOpacity
+        style={styles.scanButton}
+        onPress={() => navigation.navigate('CameraScanner')}
+      >
+        <Icon name="qrcode-scan" size={20} color="#fff" />
+        <Text style={styles.scanButtonText}>Scan Camera Barcode</Text>
+      </TouchableOpacity>
     </View>
   );
   
@@ -121,6 +128,13 @@ const CameraListScreen = ({ navigation }) => {
       <Text style={styles.listHeaderText}>
         {state.cameras.length} camera{state.cameras.length !== 1 ? 's' : ''}
       </Text>
+      <TouchableOpacity
+        style={styles.addCameraButton}
+        onPress={() => navigation.navigate('CameraScanner')}
+      >
+        <Icon name="qrcode-scan" size={16} color={colors.accent} />
+        <Text style={styles.addCameraText}>Add Camera</Text>
+      </TouchableOpacity>
     </View>
   );
   
@@ -157,6 +171,9 @@ const styles = StyleSheet.create({
   },
   listHeader: {
     marginBottom: spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   listHeaderText: {
     ...typography.bodySmall,
@@ -230,6 +247,35 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     textAlign: 'center',
     paddingHorizontal: spacing.xl,
+  },
+  scanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.accent,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.lg,
+  },
+  scanButtonText: {
+    ...typography.body,
+    color: '#fff',
+    fontWeight: '600',
+    marginLeft: spacing.sm,
+  },
+  addCameraButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
+  },
+  addCameraText: {
+    ...typography.caption,
+    color: colors.accent,
+    marginLeft: spacing.xs,
+    fontWeight: '600',
   },
 });
 
