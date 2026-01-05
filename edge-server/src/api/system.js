@@ -90,6 +90,19 @@ router.get('/diagnostic', async (req, res) => {
   
   let dbStatus = { connected: false };
   let dbCameras = [];
+  let connectionError = null;
+  
+  // Check environment variables (masked for security)
+  const envCheck = {
+    DATABASE_URL: !!process.env.DATABASE_URL ? 'SET (length: ' + process.env.DATABASE_URL.length + ')' : 'NOT SET',
+    DB_HOST: process.env.DB_HOST || 'NOT SET',
+    DB_PORT: process.env.DB_PORT || 'NOT SET',
+    DB_NAME: process.env.DB_NAME || 'NOT SET',
+    DB_USER: process.env.DB_USER || 'NOT SET',
+    DB_PASSWORD: !!process.env.DB_PASSWORD ? 'SET (length: ' + process.env.DB_PASSWORD.length + ')' : 'NOT SET',
+    DB_SSL: process.env.DB_SSL || 'NOT SET',
+    NODE_ENV: process.env.NODE_ENV || 'NOT SET'
+  };
   
   if (db.isConnected) {
     try {
@@ -102,12 +115,25 @@ router.get('/diagnostic', async (req, res) => {
     } catch (e) {
       dbStatus.error = e.message;
     }
+  } else if (db.pool) {
+    // Try to connect now and capture error
+    try {
+      const client = await db.pool.connect();
+      await client.query('SELECT NOW()');
+      client.release();
+      dbStatus.connected = true;
+      db.isConnected = true;
+    } catch (e) {
+      connectionError = e.message;
+    }
   }
   
   res.json({
     code: 'SUCCESS',
     data: {
       database: dbStatus,
+      connectionError: connectionError,
+      environmentVariables: envCheck,
       camerasInDatabase: dbCameras,
       camerasInMemory: cameraManager.getAllCameras().map(c => ({
         id: c.id,
@@ -116,7 +142,7 @@ router.get('/diagnostic', async (req, res) => {
         type: c.type,
         location: c.location
       })),
-      dbHasConnection: !!db,
+      dbHasPool: !!db.pool,
       dbIsConnected: db?.isConnected || false,
       cameraManagerHasDb: !!cameraManager.db,
       timestamp: new Date().toISOString()
