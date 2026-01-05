@@ -156,7 +156,7 @@ class CameraManager extends EventEmitter {
    * @returns {Object} Registered camera
    */
   registerCamera(cameraData) {
-    const { id, name, location, rtspUrl, onvifUrl } = cameraData;
+    const { id, name, location, rtspUrl, onvifUrl, uid, type, credentials, connectionType, p2pInfo } = cameraData;
     
     if (this.cameras.size >= this.config.maxCameras) {
       throw new Error(`Maximum camera limit (${this.config.maxCameras}) reached`);
@@ -172,6 +172,11 @@ class CameraManager extends EventEmitter {
       location: location || 'Unknown',
       rtspUrl,
       onvifUrl,
+      uid: uid || null,
+      type: type || (uid ? 'UBOX' : 'STANDARD'),
+      credentials: credentials || { username: 'admin', password: 'admin' },
+      connectionType: connectionType || (uid ? 'P2P' : 'RTSP'),
+      p2pInfo: p2pInfo || null,
       status: CameraStatus.INITIALIZING,
       registeredAt: new Date().toISOString(),
       lastSeen: new Date().toISOString(),
@@ -185,7 +190,7 @@ class CameraManager extends EventEmitter {
     // Save to database
     this._saveToDatabase(camera);
     
-    Logger.info('Camera registered', { cameraId: id, location });
+    Logger.info('Camera registered', { cameraId: id, location, uid: uid || 'N/A', type: camera.type });
     this.emit('cameraRegistered', camera);
     
     // Initialize camera connection

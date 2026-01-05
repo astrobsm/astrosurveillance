@@ -94,7 +94,6 @@ router.get('/diagnostic', async (req, res) => {
   
   // Check environment variables (masked for security)
   const envCheck = {
-    DATABASE_URL: !!process.env.DATABASE_URL ? 'SET (length: ' + process.env.DATABASE_URL.length + ')' : 'NOT SET',
     DB_HOST: process.env.DB_HOST || 'NOT SET',
     DB_PORT: process.env.DB_PORT || 'NOT SET',
     DB_NAME: process.env.DB_NAME || 'NOT SET',
@@ -148,6 +147,89 @@ router.get('/diagnostic', async (req, res) => {
       timestamp: new Date().toISOString()
     }
   });
+});
+
+/**
+ * POST /api/system/fix-cameras
+ * Fix existing cameras by extracting UID from name and remove duplicates
+ */
+router.post('/fix-cameras', async (req, res) => {
+  const { cameraManager } = req.app.locals.modules;
+  
+  if (!db.isConnected) {
+    return res.status(500).json({
+      code: 'ERROR',
+      message: 'Database not connected'
+    });
+  }
+  
+  try {
+    // Get all cameras from database
+    const result = await db.query('SELECT * FROM cameras');
+    const cameras = result.rows || [];
+    
+    const fixed = [];
+    const deleted = [];
+    const uidsSeen = new Set();
+    
+    for (const cam of cameras) {
+      // Extract UID from camera name if it looks like a UID
+      let extractedUid = cam.uid;
+      
+      // Check if name contains a UID pattern (e.g., "Camera NC73CDQCFJ2PRWIIM5BA")
+      const uidMatch = cam.name?.match(/([A-Z]{2,4}[A-Z0-9]{10,18})/i);
+      if (uidMatch && !extractedUid) {
+        extractedUid = uidMatch[1].toUpperCase();
+      }
+      
+      // If we've already seen this UID, delete the duplicate
+      if (extractedUid && uidsSeen.has(extractedUid)) {
+        await db.query('DELETE FROM cameras WHERE id = $1', [cam.id]);
+        deleted.push({ id: cam.id, uid: extractedUid });
+        cameraManager.cameras.delete(cam.id);
+        continue;
+      }
+      
+      if (extractedUid) {
+        uidsSeen.add(extractedUid);
+        
+        // Update camera with proper UID and name
+        await db.query(`
+          UPDATE cameras 
+          SET uid = $1, 
+              name = $2,
+              camera_type = 'UBOX',
+              location = COALESCE(NULLIF(location, 'Unknown'), 'Bonnesante Factory')
+          WHERE id = $3
+        `, [extractedUid, 'GZ-SONY MAKE.BELIEVE', cam.id]);
+        
+        // Update in-memory camera
+        const memCamera = cameraManager.cameras.get(cam.id);
+        if (memCamera) {
+          memCamera.uid = extractedUid;
+          memCamera.name = 'GZ-SONY MAKE.BELIEVE';
+          memCamera.type = 'UBOX';
+          memCamera.location = 'Bonnesante Factory';
+        }
+        
+        fixed.push({ id: cam.id, uid: extractedUid });
+      }
+    }
+    
+    // Reload cameras from database
+    await cameraManager.loadFromDatabase();
+    
+    res.json({
+      code: 'SUCCESS',
+      message: `Fixed ${fixed.length} cameras, deleted ${deleted.length} duplicates`,
+      data: { fixed, deleted }
+    });
+  } catch (error) {
+    res.status(500).json({
+      code: 'ERROR',
+      message: error.message
+    });
+  }
 });
 
 /**
