@@ -68,6 +68,19 @@ class Database {
    * Initialize database schema (create tables if not exist)
    */
   async initializeSchema() {
+    // First, try to add missing columns to existing table
+    try {
+      await this.pool.query(`
+        ALTER TABLE cameras ADD COLUMN IF NOT EXISTS uid VARCHAR(100);
+      `);
+    } catch (e) { /* Column might already exist or table doesn't exist yet */ }
+    
+    try {
+      await this.pool.query(`
+        ALTER TABLE cameras ADD COLUMN IF NOT EXISTS camera_type VARCHAR(50) DEFAULT 'STANDARD';
+      `);
+    } catch (e) { /* Column might already exist or table doesn't exist yet */ }
+
     const schema = `
       -- Cameras table
       CREATE TABLE IF NOT EXISTS cameras (
@@ -88,18 +101,11 @@ class Database {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
-      
-      -- Add missing columns if table already exists
-      DO $$ BEGIN
-        ALTER TABLE cameras ADD COLUMN IF NOT EXISTS uid VARCHAR(100);
-        ALTER TABLE cameras ADD COLUMN IF NOT EXISTS camera_type VARCHAR(50) DEFAULT 'STANDARD';
-      EXCEPTION WHEN OTHERS THEN NULL;
-      END $$;
 
       -- Recordings table
       CREATE TABLE IF NOT EXISTS recordings (
         id SERIAL PRIMARY KEY,
-        camera_id VARCHAR(50) REFERENCES cameras(id) ON DELETE CASCADE,
+        camera_id VARCHAR(50),
         filename VARCHAR(255) NOT NULL,
         filepath TEXT NOT NULL,
         duration_seconds INTEGER DEFAULT 60,

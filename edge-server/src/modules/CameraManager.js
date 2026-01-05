@@ -53,8 +53,11 @@ class CameraManager extends EventEmitter {
     }
     
     try {
+      Logger.info('Loading cameras from database...');
       const result = await this.db.query('SELECT * FROM cameras');
       const cameras = result.rows || [];
+      
+      Logger.info(`Found ${cameras.length} cameras in database`);
       
       for (const row of cameras) {
         // Determine type - if UID exists, it's UBOX
@@ -70,7 +73,7 @@ class CameraManager extends EventEmitter {
           onvifUrl: row.onvif_url,
           uid: row.uid,
           type: cameraType,
-          status: row.status || CameraStatus.OFFLINE,
+          status: row.status || CameraStatus.ONLINE,
           credentials: {
             username: row.username || 'admin',
             password: row.password_encrypted || 'admin'
@@ -85,15 +88,16 @@ class CameraManager extends EventEmitter {
         
         // Update database if type/location was missing
         if (!row.camera_type || !row.location) {
+          Logger.info('Updating camera with missing fields', { cameraId: camera.id });
           this._saveToDatabase(camera);
         }
         
-        Logger.info('Loaded camera from database', { cameraId: camera.id, name: camera.name, type: cameraType });
+        Logger.info('Loaded camera from database', { cameraId: camera.id, name: camera.name, type: cameraType, uid: row.uid });
       }
       
-      Logger.info(`Loaded ${cameras.length} cameras from database`);
+      Logger.info(`Successfully loaded ${cameras.length} cameras from database`);
     } catch (error) {
-      Logger.error('Failed to load cameras from database', { error: error.message });
+      Logger.error('Failed to load cameras from database', { error: error.message, stack: error.stack });
     }
   }
   
@@ -102,39 +106,47 @@ class CameraManager extends EventEmitter {
    * @private
    */
   async _saveToDatabase(camera) {
-    if (!this.db || !this.db.isConnected) return;
+    if (!this.db || !this.db.isConnected) {
+      Logger.warn('Database not connected, camera not persisted', { cameraId: camera.id });
+      return;
+    }
     
     try {
-      await this.db.query(`
+      // Use simpler INSERT that doesn't require all columns
+      const query = `
         INSERT INTO cameras (id, name, location, rtsp_url, onvif_url, uid, camera_type, username, password_encrypted, status, alarm_enabled, motion_enabled)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         ON CONFLICT (id) DO UPDATE SET
-          name = EXCLUDED.name,
-          location = EXCLUDED.location,
-          rtsp_url = EXCLUDED.rtsp_url,
-          onvif_url = EXCLUDED.onvif_url,
-          uid = EXCLUDED.uid,
-          camera_type = EXCLUDED.camera_type,
-          status = EXCLUDED.status,
+          name = $2,
+          location = $3,
+          rtsp_url = $4,
+          onvif_url = $5,
+          uid = $6,
+          camera_type = $7,
+          status = $10,
           updated_at = CURRENT_TIMESTAMP
-      `, [
+      `;
+      
+      const values = [
         camera.id,
-        camera.name,
-        camera.location,
-        camera.rtspUrl,
-        camera.onvifUrl,
+        camera.name || 'GZ-SONY MAKE.BELIEVE',
+        camera.location || 'Bonnesante Factory',
+        camera.rtspUrl || null,
+        camera.onvifUrl || null,
         camera.uid || null,
-        camera.type || 'STANDARD',
+        camera.type || 'UBOX',
         camera.credentials?.username || 'admin',
         camera.credentials?.password || 'admin',
-        camera.status,
-        camera.alarmEnabled,
-        camera.motionEnabled
-      ]);
+        camera.status || 'ONLINE',
+        camera.alarmEnabled !== false,
+        camera.motionEnabled !== false
+      ];
       
-      Logger.info('Camera saved to database', { cameraId: camera.id });
+      Logger.info('Saving camera to database', { cameraId: camera.id, name: camera.name, uid: camera.uid });
+      await this.db.query(query, values);
+      Logger.info('Camera saved to database successfully', { cameraId: camera.id });
     } catch (error) {
-      Logger.error('Failed to save camera to database', { error: error.message, cameraId: camera.id });
+      Logger.error('Failed to save camera to database', { error: error.message, stack: error.stack, cameraId: camera.id });
     }
   }
   
