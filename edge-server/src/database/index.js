@@ -19,24 +19,47 @@ class Database {
    * @param {Object} config - Database configuration
    */
   async initialize(config = {}) {
-    // Check for DATABASE_URL (provided by DigitalOcean when database is attached)
-    const databaseUrl = process.env.DATABASE_URL;
-    
     let dbConfig;
     
-    if (databaseUrl) {
-      // Parse DATABASE_URL format: postgresql://user:password@host:port/database?sslmode=require
+    // PRIORITIZE individual DB_* variables over DATABASE_URL
+    // (DATABASE_URL might be auto-injected incorrectly by DigitalOcean)
+    if (process.env.DB_HOST && process.env.DB_HOST.includes('ondigitalocean.com')) {
+      // Use individual environment variables (preferred)
+      const useSSL = config.ssl !== undefined ? config.ssl : (process.env.DB_SSL === 'true' || true);
+      const sslConfig = useSSL ? { rejectUnauthorized: false } : false;
+
+      dbConfig = {
+        host: process.env.DB_HOST,
+        port: parseInt(process.env.DB_PORT || 25060, 10),
+        database: process.env.DB_NAME || 'defaultdb',
+        user: process.env.DB_USER || 'doadmin',
+        password: process.env.DB_PASSWORD || '',
+        ssl: sslConfig,
+        max: config.maxConnections || 10,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 15000,
+      };
+      
+      Logger.info('Using individual DB_* environment variables', { 
+        host: dbConfig.host, 
+        port: dbConfig.port,
+        database: dbConfig.database,
+        ssl: !!dbConfig.ssl,
+        hasPassword: !!dbConfig.password
+      });
+    } else if (process.env.DATABASE_URL) {
+      // Fallback to DATABASE_URL if individual vars not set
       Logger.info('Using DATABASE_URL for connection');
       dbConfig = {
-        connectionString: databaseUrl,
+        connectionString: process.env.DATABASE_URL,
         ssl: { rejectUnauthorized: false },
         max: 10,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 15000,
       };
     } else {
-      // Use individual environment variables
-      const useSSL = config.ssl !== undefined ? config.ssl : (process.env.DB_SSL === 'true' || process.env.DB_HOST?.includes('ondigitalocean.com'));
+      // Use config or defaults
+      const useSSL = config.ssl !== undefined ? config.ssl : (process.env.DB_SSL === 'true');
       const sslConfig = useSSL ? { rejectUnauthorized: false } : false;
 
       dbConfig = {
