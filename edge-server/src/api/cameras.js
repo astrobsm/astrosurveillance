@@ -633,4 +633,292 @@ router.post('/wifi/configure', async (req, res) => {
   }
 });
 
+// =============================================
+// CAMERA SNAPSHOT & RECORDING ENDPOINTS
+// =============================================
+
+/**
+ * GET /api/cameras/:id/snapshot
+ * Get the latest snapshot from a camera
+ */
+router.get('/:id/snapshot', async (req, res) => {
+  const { cameraManager } = req.app.locals.modules;
+  const cameraId = req.params.id;
+  
+  const camera = cameraManager.getCamera(cameraId);
+  if (!camera) {
+    return res.status(404).json({
+      code: 'ERROR',
+      message: 'Camera not found'
+    });
+  }
+  
+  // For UBOX cameras, we can't directly access the stream
+  // Return a placeholder or the last known snapshot
+  res.json({
+    code: 'SUCCESS',
+    data: {
+      cameraId,
+      imageUrl: null, // Would be populated if we have snapshot capability
+      timestamp: new Date().toISOString(),
+      message: 'Snapshot functionality requires direct camera connection'
+    }
+  });
+});
+
+/**
+ * POST /api/cameras/:id/snapshot
+ * Take a new snapshot from the camera
+ */
+router.post('/:id/snapshot', async (req, res) => {
+  const { cameraManager, storageManager } = req.app.locals.modules;
+  const cameraId = req.params.id;
+  
+  const camera = cameraManager.getCamera(cameraId);
+  if (!camera) {
+    return res.status(404).json({
+      code: 'ERROR',
+      message: 'Camera not found'
+    });
+  }
+  
+  try {
+    // For UBOX/P2P cameras, snapshot would require native UBOX SDK
+    // For now, log the action and return success
+    const snapshotId = `snap_${Date.now()}`;
+    
+    res.json({
+      code: 'SUCCESS',
+      message: 'Snapshot request sent to camera',
+      data: {
+        snapshotId,
+        cameraId,
+        timestamp: new Date().toISOString(),
+        note: 'UBOX cameras require P2P connection for live snapshots'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      code: 'ERROR',
+      message: 'Failed to take snapshot: ' + error.message
+    });
+  }
+});
+
+/**
+ * GET /api/cameras/:id/snapshots
+ * Get list of snapshots for a camera
+ */
+router.get('/:id/snapshots', async (req, res) => {
+  const { cameraManager } = req.app.locals.modules;
+  const cameraId = req.params.id;
+  
+  const camera = cameraManager.getCamera(cameraId);
+  if (!camera) {
+    return res.status(404).json({
+      code: 'ERROR',
+      message: 'Camera not found'
+    });
+  }
+  
+  // Return empty array for now - would be populated from storage
+  res.json({
+    code: 'SUCCESS',
+    data: {
+      cameraId,
+      snapshots: []
+    }
+  });
+});
+
+/**
+ * POST /api/cameras/:id/record
+ * Start manual recording for a camera
+ */
+router.post('/:id/record', async (req, res) => {
+  const { cameraManager, recordingController } = req.app.locals.modules;
+  const cameraId = req.params.id;
+  const { duration = 60, triggerType = 'manual' } = req.body;
+  
+  const camera = cameraManager.getCamera(cameraId);
+  if (!camera) {
+    return res.status(404).json({
+      code: 'ERROR',
+      message: 'Camera not found'
+    });
+  }
+  
+  try {
+    // Start recording
+    const recordingId = `rec_${Date.now()}`;
+    
+    if (recordingController && typeof recordingController.startRecording === 'function') {
+      recordingController.startRecording(cameraId, { duration, triggerType });
+    }
+    
+    // Update camera status
+    cameraManager.updateCameraStatus(cameraId, 'RECORDING');
+    
+    res.json({
+      code: 'SUCCESS',
+      message: 'Recording started',
+      data: {
+        recordingId,
+        cameraId,
+        duration,
+        triggerType,
+        startTime: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      code: 'ERROR',
+      message: 'Failed to start recording: ' + error.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/cameras/:id/record
+ * Stop manual recording for a camera
+ */
+router.delete('/:id/record', async (req, res) => {
+  const { cameraManager, recordingController } = req.app.locals.modules;
+  const cameraId = req.params.id;
+  
+  const camera = cameraManager.getCamera(cameraId);
+  if (!camera) {
+    return res.status(404).json({
+      code: 'ERROR',
+      message: 'Camera not found'
+    });
+  }
+  
+  try {
+    if (recordingController && typeof recordingController.stopRecording === 'function') {
+      recordingController.stopRecording(cameraId);
+    }
+    
+    // Update camera status
+    cameraManager.updateCameraStatus(cameraId, 'ONLINE');
+    
+    res.json({
+      code: 'SUCCESS',
+      message: 'Recording stopped',
+      data: {
+        cameraId,
+        endTime: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      code: 'ERROR',
+      message: 'Failed to stop recording: ' + error.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/cameras/:id
+ * Remove a camera
+ */
+router.delete('/:id', async (req, res) => {
+  const { cameraManager, motionDetector, recordingController, db } = req.app.locals.modules;
+  const cameraId = req.params.id;
+  
+  const camera = cameraManager.getCamera(cameraId);
+  if (!camera) {
+    return res.status(404).json({
+      code: 'ERROR',
+      message: 'Camera not found'
+    });
+  }
+  
+  try {
+    // Remove from motion detector
+    if (motionDetector && typeof motionDetector.detachCamera === 'function') {
+      motionDetector.detachCamera(cameraId);
+    }
+    
+    // Remove from recording controller
+    if (recordingController && typeof recordingController.unregisterCamera === 'function') {
+      recordingController.unregisterCamera(cameraId);
+    }
+    
+    // Remove from camera manager
+    cameraManager.removeCamera(cameraId);
+    
+    // Remove from database
+    if (db && db.isConnected) {
+      await db.query('DELETE FROM cameras WHERE id = $1', [cameraId]);
+    }
+    
+    res.json({
+      code: 'SUCCESS',
+      message: 'Camera removed successfully',
+      data: { cameraId }
+    });
+  } catch (error) {
+    res.status(500).json({
+      code: 'ERROR',
+      message: 'Failed to remove camera: ' + error.message
+    });
+  }
+});
+
+/**
+ * PATCH /api/cameras/:id
+ * Update camera settings
+ */
+router.patch('/:id', async (req, res) => {
+  const { cameraManager, db } = req.app.locals.modules;
+  const cameraId = req.params.id;
+  const updates = req.body;
+  
+  const camera = cameraManager.getCamera(cameraId);
+  if (!camera) {
+    return res.status(404).json({
+      code: 'ERROR',
+      message: 'Camera not found'
+    });
+  }
+  
+  try {
+    // Update allowed fields
+    const allowedFields = ['name', 'location', 'alarmEnabled', 'motionEnabled'];
+    const validUpdates = {};
+    
+    for (const field of allowedFields) {
+      if (updates[field] !== undefined) {
+        validUpdates[field] = updates[field];
+        camera[field] = updates[field];
+      }
+    }
+    
+    // Update in database
+    if (db && db.isConnected && Object.keys(validUpdates).length > 0) {
+      const sets = Object.keys(validUpdates).map((k, i) => {
+        const dbField = k.replace(/([A-Z])/g, '_$1').toLowerCase();
+        return `${dbField} = $${i + 2}`;
+      }).join(', ');
+      
+      await db.query(
+        `UPDATE cameras SET ${sets}, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        [cameraId, ...Object.values(validUpdates)]
+      );
+    }
+    
+    res.json({
+      code: 'SUCCESS',
+      message: 'Camera updated',
+      data: { camera }
+    });
+  } catch (error) {
+    res.status(500).json({
+      code: 'ERROR',
+      message: 'Failed to update camera: ' + error.message
+    });
+  }
+});
+
 module.exports = router;

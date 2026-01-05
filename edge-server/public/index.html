@@ -797,6 +797,134 @@
     </div>
   </div>
 
+  <!-- Camera Live View Modal -->
+  <div id="camera-view-modal" class="modal hidden" style="overflow-y: auto;">
+    <div class="modal-content" style="max-width: 800px; max-height: 95vh; overflow-y: auto; margin: 10px auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="margin: 0;"><i class="mdi mdi-cctv"></i> <span id="view-camera-name">Camera</span></h3>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span id="view-camera-status" class="camera-status online">
+            <div class="camera-status-dot"></div>
+            <span>Online</span>
+          </span>
+          <button onclick="closeCameraViewModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted);">
+            <i class="mdi mdi-close"></i>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Live Video Feed -->
+      <div id="live-feed-container" style="background: #000; border-radius: 12px; overflow: hidden; position: relative; margin-bottom: 16px;">
+        <video id="live-video-feed" style="width: 100%; min-height: 300px; display: block;" autoplay playsinline muted></video>
+        <img id="live-snapshot-img" style="width: 100%; min-height: 300px; display: none; object-fit: contain;" alt="Camera Feed">
+        <div id="live-feed-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); color: var(--text-muted);">
+          <i class="mdi mdi-video-off" style="font-size: 64px;"></i>
+          <p id="live-feed-status" style="margin-top: 12px;">Connecting to camera...</p>
+          <button onclick="connectToLiveFeed()" style="margin-top: 12px; padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer;">
+            <i class="mdi mdi-refresh"></i> Retry Connection
+          </button>
+        </div>
+        
+        <!-- Recording indicator -->
+        <div id="recording-indicator" class="hidden" style="position: absolute; top: 12px; left: 12px; background: var(--danger); color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; animation: blink 1s infinite;">
+          <i class="mdi mdi-record-circle"></i> REC
+        </div>
+        
+        <!-- Timestamp overlay -->
+        <div style="position: absolute; bottom: 12px; left: 12px; background: rgba(0,0,0,0.7); color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-family: monospace;">
+          <span id="live-timestamp"></span>
+        </div>
+      </div>
+      
+      <style>
+        @keyframes blink {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0.3; }
+        }
+      </style>
+      
+      <!-- Camera Info -->
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
+        <div style="padding: 12px; background: var(--surface-light); border-radius: 8px;">
+          <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Location</div>
+          <div id="view-camera-location" style="font-size: 14px; font-weight: 600;">Unknown</div>
+        </div>
+        <div style="padding: 12px; background: var(--surface-light); border-radius: 8px;">
+          <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Camera Type</div>
+          <div id="view-camera-type" style="font-size: 14px; font-weight: 600;">UBOX</div>
+        </div>
+        <div style="padding: 12px; background: var(--surface-light); border-radius: 8px;">
+          <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">UID/IP</div>
+          <div id="view-camera-uid" style="font-size: 12px; font-family: monospace; word-break: break-all;">-</div>
+        </div>
+        <div style="padding: 12px; background: var(--surface-light); border-radius: 8px;">
+          <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Recordings</div>
+          <div id="view-camera-recordings" style="font-size: 14px; font-weight: 600;">0</div>
+        </div>
+      </div>
+      
+      <!-- Action Buttons -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
+        <button onclick="takeSnapshot()" class="action-btn" style="flex-direction: column; padding: 16px 12px;">
+          <i class="mdi mdi-camera" style="font-size: 24px;"></i>
+          <span style="font-size: 11px; margin-top: 4px;">Snapshot</span>
+        </button>
+        <button onclick="startManualRecording()" id="btn-start-record" class="action-btn" style="flex-direction: column; padding: 16px 12px;">
+          <i class="mdi mdi-record-circle" style="font-size: 24px; color: var(--danger);"></i>
+          <span style="font-size: 11px; margin-top: 4px;">Record</span>
+        </button>
+        <button onclick="stopManualRecording()" id="btn-stop-record" class="action-btn hidden" style="flex-direction: column; padding: 16px 12px; background: var(--danger); color: white;">
+          <i class="mdi mdi-stop-circle" style="font-size: 24px;"></i>
+          <span style="font-size: 11px; margin-top: 4px;">Stop</span>
+        </button>
+        <button onclick="triggerCameraAlarm()" class="action-btn" style="flex-direction: column; padding: 16px 12px;">
+          <i class="mdi mdi-alarm-light" style="font-size: 24px; color: var(--warning);"></i>
+          <span style="font-size: 11px; margin-top: 4px;">Alarm</span>
+        </button>
+        <button onclick="toggleCameraSettings()" class="action-btn" style="flex-direction: column; padding: 16px 12px;">
+          <i class="mdi mdi-cog" style="font-size: 24px;"></i>
+          <span style="font-size: 11px; margin-top: 4px;">Settings</span>
+        </button>
+      </div>
+      
+      <!-- Camera Settings (collapsible) -->
+      <div id="camera-settings-panel" class="hidden" style="padding: 16px; background: var(--surface-light); border-radius: 12px; margin-bottom: 16px;">
+        <h4 style="margin: 0 0 12px 0;"><i class="mdi mdi-cog"></i> Camera Settings</h4>
+        <div style="display: grid; gap: 12px;">
+          <label style="display: flex; align-items: center; justify-content: space-between;">
+            <span>Motion Detection</span>
+            <input type="checkbox" id="setting-motion" checked onchange="updateCameraSetting('motionEnabled', this.checked)">
+          </label>
+          <label style="display: flex; align-items: center; justify-content: space-between;">
+            <span>Alarm Enabled</span>
+            <input type="checkbox" id="setting-alarm" checked onchange="updateCameraSetting('alarmEnabled', this.checked)">
+          </label>
+          <div style="border-top: 1px solid var(--surface); padding-top: 12px; margin-top: 8px;">
+            <button onclick="removeCurrentCamera()" style="width: 100%; padding: 12px; background: var(--danger); color: white; border: none; border-radius: 8px; cursor: pointer;">
+              <i class="mdi mdi-delete"></i> Remove Camera
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Recent Snapshots -->
+      <div id="recent-snapshots" style="margin-bottom: 16px;">
+        <h4 style="margin: 0 0 12px 0;"><i class="mdi mdi-image-multiple"></i> Recent Snapshots</h4>
+        <div id="snapshots-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+          <div style="text-align: center; padding: 20px; color: var(--text-muted); grid-column: span 4; background: var(--surface-light); border-radius: 8px;">
+            <i class="mdi mdi-image-off" style="font-size: 24px;"></i>
+            <p style="margin: 8px 0 0 0; font-size: 12px;">No snapshots yet</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-buttons">
+        <button onclick="closeCameraViewModal()">Close</button>
+      </div>
+    </div>
+  </div>
+  <input type="hidden" id="current-camera-id" value="">
+
   <!-- WiFi Setup Modal -->
   <div id="wifi-setup-modal" class="modal hidden" style="overflow-y: auto;">
     <div class="modal-content" style="max-width: 550px; max-height: 90vh; overflow-y: auto; margin: 20px auto;">
@@ -1050,7 +1178,7 @@
         const cameraList = document.getElementById('camera-list');
         if (cameras.length > 0) {
           cameraList.innerHTML = cameras.map(cam => `
-            <div class="camera-card">
+            <div class="camera-card" onclick="openCameraView('${cam.id}')" style="cursor: pointer;" data-camera-id="${cam.id}">
               <div class="camera-preview">
                 <i class="mdi mdi-cctv"></i>
               </div>
@@ -1062,8 +1190,14 @@
                   ${cam.status || 'Online'}
                 </div>
               </div>
+              <div style="margin-left: auto; color: var(--text-muted);">
+                <i class="mdi mdi-chevron-right"></i>
+              </div>
             </div>
           `).join('');
+          
+          // Store cameras data for quick access
+          window.camerasData = cameras.reduce((acc, cam) => { acc[cam.id] = cam; return acc; }, {});
         } else {
           cameraList.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);"><i class="mdi mdi-cctv" style="font-size: 32px;"></i><p>No cameras added yet</p></div>';
         }
@@ -1271,6 +1405,28 @@
           } else if (data.type === 'ALARM_STOPPED') {
             updateAlarmUI(false);
             stopAlarmSound();
+          } else if (data.type === 'CAMERA_ADDED') {
+            // Cross-device sync: camera added on another device
+            addEvent('Camera added: ' + (data.data.camera?.name || data.data.camera?.id), 'recording');
+            fetchData(); // Refresh camera list
+          } else if (data.type === 'CAMERA_REMOVED') {
+            addEvent('Camera removed: ' + data.data.cameraId, 'motion');
+            fetchData();
+          } else if (data.type === 'CAMERA_STATUS') {
+            // Update camera status in UI
+            const card = document.querySelector(`[data-camera-id="${data.data.cameraId}"]`);
+            if (card) {
+              const statusEl = card.querySelector('.camera-status');
+              if (statusEl) {
+                statusEl.className = 'camera-status ' + (data.data.status === 'RECORDING' ? 'recording' : 'online');
+                statusEl.innerHTML = '<div class="camera-status-dot"></div>' + data.data.status;
+              }
+            }
+          } else if (data.type === 'INITIAL_STATE') {
+            // Update cameras data from initial state
+            if (data.data?.cameras) {
+              window.camerasData = data.data.cameras.reduce((acc, cam) => { acc[cam.id] = cam; return acc; }, {});
+            }
           }
         };
         
@@ -1401,6 +1557,274 @@
       // Reset form
       document.getElementById('qr-cam-name').value = '';
       document.getElementById('qr-cam-location').value = '';
+    }
+    
+    // =============================================
+    // CAMERA LIVE VIEW FUNCTIONALITY
+    // =============================================
+    
+    let liveTimestampInterval = null;
+    let isRecordingManual = false;
+    let currentRecordingId = null;
+    
+    function openCameraView(cameraId) {
+      const camera = window.camerasData ? window.camerasData[cameraId] : null;
+      if (!camera) {
+        alert('Camera data not found. Please refresh the page.');
+        return;
+      }
+      
+      // Store current camera ID
+      document.getElementById('current-camera-id').value = cameraId;
+      
+      // Populate camera info
+      document.getElementById('view-camera-name').textContent = camera.name || cameraId;
+      document.getElementById('view-camera-location').textContent = camera.location || 'Unknown';
+      document.getElementById('view-camera-type').textContent = camera.type || 'STANDARD';
+      document.getElementById('view-camera-uid').textContent = camera.uid || camera.ip || camera.rtspUrl || '-';
+      document.getElementById('view-camera-recordings').textContent = camera.recordingCount || 0;
+      
+      // Settings checkboxes
+      document.getElementById('setting-motion').checked = camera.motionEnabled !== false;
+      document.getElementById('setting-alarm').checked = camera.alarmEnabled !== false;
+      
+      // Reset UI
+      document.getElementById('btn-start-record').classList.remove('hidden');
+      document.getElementById('btn-stop-record').classList.add('hidden');
+      document.getElementById('recording-indicator').classList.add('hidden');
+      document.getElementById('camera-settings-panel').classList.add('hidden');
+      isRecordingManual = false;
+      
+      // Show modal
+      document.getElementById('camera-view-modal').classList.remove('hidden');
+      
+      // Start timestamp update
+      updateLiveTimestamp();
+      liveTimestampInterval = setInterval(updateLiveTimestamp, 1000);
+      
+      // Attempt to connect to live feed
+      connectToLiveFeed();
+      
+      speak('Opening camera view for ' + (camera.name || 'camera'));
+    }
+    
+    function closeCameraViewModal() {
+      document.getElementById('camera-view-modal').classList.add('hidden');
+      
+      // Stop timestamp updates
+      if (liveTimestampInterval) {
+        clearInterval(liveTimestampInterval);
+        liveTimestampInterval = null;
+      }
+      
+      // Stop any live feed
+      const video = document.getElementById('live-video-feed');
+      if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+      }
+      
+      document.getElementById('current-camera-id').value = '';
+    }
+    
+    function updateLiveTimestamp() {
+      const now = new Date();
+      const timestamp = now.toLocaleString('en-US', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+      });
+      document.getElementById('live-timestamp').textContent = timestamp;
+    }
+    
+    async function connectToLiveFeed() {
+      const cameraId = document.getElementById('current-camera-id').value;
+      const overlay = document.getElementById('live-feed-overlay');
+      const statusText = document.getElementById('live-feed-status');
+      
+      statusText.textContent = 'Connecting to camera...';
+      overlay.style.display = 'flex';
+      
+      try {
+        // Try to get a snapshot from the camera
+        const res = await fetch(API_BASE + '/cameras/' + cameraId + '/snapshot');
+        const data = await res.json();
+        
+        if (data.code === 'SUCCESS' && data.data?.imageUrl) {
+          document.getElementById('live-snapshot-img').src = data.data.imageUrl;
+          document.getElementById('live-snapshot-img').style.display = 'block';
+          document.getElementById('live-video-feed').style.display = 'none';
+          overlay.style.display = 'none';
+        } else {
+          throw new Error(data.message || 'No snapshot available');
+        }
+      } catch (error) {
+        statusText.textContent = 'Camera feed unavailable. UBOX cameras require P2P connection.';
+        overlay.style.display = 'flex';
+      }
+    }
+    
+    async function takeSnapshot() {
+      const cameraId = document.getElementById('current-camera-id').value;
+      if (!cameraId) return;
+      
+      speak('Taking snapshot');
+      
+      try {
+        const res = await fetch(API_BASE + '/cameras/' + cameraId + '/snapshot', {
+          method: 'POST'
+        });
+        const data = await res.json();
+        
+        if (data.code === 'SUCCESS') {
+          speak('Snapshot saved');
+          addEvent('Snapshot taken: ' + cameraId, 'recording');
+          
+          // Update snapshot display
+          if (data.data?.imageUrl) {
+            document.getElementById('live-snapshot-img').src = data.data.imageUrl + '?t=' + Date.now();
+          }
+          
+          // Refresh snapshots grid
+          loadCameraSnapshots(cameraId);
+        } else {
+          throw new Error(data.message);
+        }
+      } catch (error) {
+        speak('Snapshot failed. ' + error.message);
+        alert('Failed to take snapshot: ' + error.message);
+      }
+    }
+    
+    async function startManualRecording() {
+      const cameraId = document.getElementById('current-camera-id').value;
+      if (!cameraId || isRecordingManual) return;
+      
+      speak('Starting manual recording');
+      
+      try {
+        const res = await fetch(API_BASE + '/cameras/' + cameraId + '/record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ duration: 60, triggerType: 'manual' })
+        });
+        const data = await res.json();
+        
+        if (data.code === 'SUCCESS') {
+          isRecordingManual = true;
+          currentRecordingId = data.data?.recordingId;
+          document.getElementById('btn-start-record').classList.add('hidden');
+          document.getElementById('btn-stop-record').classList.remove('hidden');
+          document.getElementById('recording-indicator').classList.remove('hidden');
+          speak('Recording started');
+          addEvent('Manual recording started: ' + cameraId, 'recording');
+        } else {
+          throw new Error(data.message);
+        }
+      } catch (error) {
+        speak('Recording failed. ' + error.message);
+        alert('Failed to start recording: ' + error.message);
+      }
+    }
+    
+    async function stopManualRecording() {
+      const cameraId = document.getElementById('current-camera-id').value;
+      if (!cameraId || !isRecordingManual) return;
+      
+      speak('Stopping recording');
+      
+      try {
+        const res = await fetch(API_BASE + '/cameras/' + cameraId + '/record', {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        
+        isRecordingManual = false;
+        currentRecordingId = null;
+        document.getElementById('btn-start-record').classList.remove('hidden');
+        document.getElementById('btn-stop-record').classList.add('hidden');
+        document.getElementById('recording-indicator').classList.add('hidden');
+        speak('Recording saved');
+        addEvent('Manual recording saved: ' + cameraId, 'recording');
+        fetchData(); // Refresh recordings count
+      } catch (error) {
+        speak('Stop recording failed');
+      }
+    }
+    
+    function triggerCameraAlarm() {
+      const cameraId = document.getElementById('current-camera-id').value;
+      triggerAlarm();
+      addEvent('Alarm triggered from camera: ' + cameraId, 'alarm');
+    }
+    
+    function toggleCameraSettings() {
+      const panel = document.getElementById('camera-settings-panel');
+      panel.classList.toggle('hidden');
+    }
+    
+    async function updateCameraSetting(setting, value) {
+      const cameraId = document.getElementById('current-camera-id').value;
+      if (!cameraId) return;
+      
+      try {
+        await fetch(API_BASE + '/cameras/' + cameraId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [setting]: value })
+        });
+      } catch (error) {
+        console.log('Failed to update setting:', error);
+      }
+    }
+    
+    async function removeCurrentCamera() {
+      const cameraId = document.getElementById('current-camera-id').value;
+      if (!cameraId) return;
+      
+      if (!confirm('Are you sure you want to remove this camera? This cannot be undone.')) return;
+      
+      try {
+        const res = await fetch(API_BASE + '/cameras/' + cameraId, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        
+        if (data.code === 'SUCCESS') {
+          speak('Camera removed');
+          closeCameraViewModal();
+          fetchData();
+          addEvent('Camera removed: ' + cameraId, 'motion');
+        } else {
+          throw new Error(data.message);
+        }
+      } catch (error) {
+        alert('Failed to remove camera: ' + error.message);
+      }
+    }
+    
+    async function loadCameraSnapshots(cameraId) {
+      try {
+        const res = await fetch(API_BASE + '/cameras/' + cameraId + '/snapshots');
+        const data = await res.json();
+        const snapshots = data.data?.snapshots || [];
+        
+        const grid = document.getElementById('snapshots-grid');
+        if (snapshots.length > 0) {
+          grid.innerHTML = snapshots.slice(0, 8).map(snap => `
+            <div style="border-radius: 8px; overflow: hidden; cursor: pointer;" onclick="viewSnapshot('${snap.url}')">
+              <img src="${snap.url}" style="width: 100%; height: 60px; object-fit: cover;" alt="Snapshot">
+            </div>
+          `).join('');
+        } else {
+          grid.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-muted); grid-column: span 4; background: var(--surface-light); border-radius: 8px;"><i class="mdi mdi-image-off" style="font-size: 24px;"></i><p style="margin: 8px 0 0 0; font-size: 12px;">No snapshots yet</p></div>';
+        }
+      } catch (error) {
+        console.log('Failed to load snapshots:', error);
+      }
+    }
+    
+    function viewSnapshot(url) {
+      window.open(url, '_blank');
     }
     
     async function generatePairingQR() {

@@ -187,6 +187,19 @@ alarmController.on('alarmStopped', () => {
   broadcast('ALARM_STOPPED', {});
 });
 
+// Camera events - broadcast to all clients for cross-device sync
+cameraManager.on('cameraRegistered', (camera) => {
+  broadcast('CAMERA_ADDED', { camera });
+});
+
+cameraManager.on('cameraRemoved', (cameraId) => {
+  broadcast('CAMERA_REMOVED', { cameraId });
+});
+
+cameraManager.on('cameraStatusChange', (cameraId, status) => {
+  broadcast('CAMERA_STATUS', { cameraId, status });
+});
+
 storageManager.on('storageWarning', (usage) => {
   broadcast('STORAGE_WARNING', { usagePercent: usage });
 });
