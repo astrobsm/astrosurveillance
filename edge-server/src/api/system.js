@@ -82,6 +82,49 @@ router.get('/status', (req, res) => {
 });
 
 /**
+ * GET /api/system/diagnostic
+ * Get diagnostic info for debugging
+ */
+router.get('/diagnostic', async (req, res) => {
+  const { cameraManager } = req.app.locals.modules;
+  
+  let dbStatus = { connected: false };
+  let dbCameras = [];
+  
+  if (db.isConnected) {
+    try {
+      dbStatus = await db.healthCheck();
+      dbStatus.connected = true;
+      
+      // Get cameras directly from database
+      const result = await db.query('SELECT id, name, uid, camera_type, location FROM cameras');
+      dbCameras = result.rows || [];
+    } catch (e) {
+      dbStatus.error = e.message;
+    }
+  }
+  
+  res.json({
+    code: 'SUCCESS',
+    data: {
+      database: dbStatus,
+      camerasInDatabase: dbCameras,
+      camerasInMemory: cameraManager.getAllCameras().map(c => ({
+        id: c.id,
+        name: c.name,
+        uid: c.uid,
+        type: c.type,
+        location: c.location
+      })),
+      dbHasConnection: !!db,
+      dbIsConnected: db?.isConnected || false,
+      cameraManagerHasDb: !!cameraManager.db,
+      timestamp: new Date().toISOString()
+    }
+  });
+});
+
+/**
  * POST /api/system/pair
  * Generate pairing QR code for mobile app
  */
