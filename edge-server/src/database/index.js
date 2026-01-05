@@ -19,28 +19,46 @@ class Database {
    * @param {Object} config - Database configuration
    */
   async initialize(config = {}) {
-    // Determine SSL settings - DigitalOcean requires SSL
-    const useSSL = config.ssl !== undefined ? config.ssl : process.env.DB_SSL === 'true';
-    const sslConfig = useSSL ? { rejectUnauthorized: false } : false;
+    // Check for DATABASE_URL (provided by DigitalOcean when database is attached)
+    const databaseUrl = process.env.DATABASE_URL;
+    
+    let dbConfig;
+    
+    if (databaseUrl) {
+      // Parse DATABASE_URL format: postgresql://user:password@host:port/database?sslmode=require
+      Logger.info('Using DATABASE_URL for connection');
+      dbConfig = {
+        connectionString: databaseUrl,
+        ssl: { rejectUnauthorized: false },
+        max: 10,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 15000,
+      };
+    } else {
+      // Use individual environment variables
+      const useSSL = config.ssl !== undefined ? config.ssl : (process.env.DB_SSL === 'true' || process.env.DB_HOST?.includes('ondigitalocean.com'));
+      const sslConfig = useSSL ? { rejectUnauthorized: false } : false;
 
-    const dbConfig = {
-      host: config.host || process.env.DB_HOST || 'localhost',
-      port: parseInt(config.port || process.env.DB_PORT || 5432, 10),
-      database: config.database || process.env.DB_NAME || 'astrosurveillance',
-      user: config.user || process.env.DB_USER || 'postgres',
-      password: config.password || process.env.DB_PASSWORD || '',
-      ssl: sslConfig,
-      max: config.maxConnections || 10,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 15000, // Increased for remote connections
-    };
-
-    Logger.info('Attempting database connection', { 
-      host: dbConfig.host, 
-      port: dbConfig.port,
-      database: dbConfig.database,
-      ssl: !!dbConfig.ssl 
-    });
+      dbConfig = {
+        host: config.host || process.env.DB_HOST || 'localhost',
+        port: parseInt(config.port || process.env.DB_PORT || 5432, 10),
+        database: config.database || process.env.DB_NAME || 'defaultdb',
+        user: config.user || process.env.DB_USER || 'doadmin',
+        password: config.password || process.env.DB_PASSWORD || '',
+        ssl: sslConfig,
+        max: config.maxConnections || 10,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 15000,
+      };
+      
+      Logger.info('Attempting database connection', { 
+        host: dbConfig.host, 
+        port: dbConfig.port,
+        database: dbConfig.database,
+        ssl: !!dbConfig.ssl,
+        hasPassword: !!dbConfig.password
+      });
+    }
 
     try {
       this.pool = new Pool(dbConfig);
