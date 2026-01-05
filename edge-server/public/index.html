@@ -1577,11 +1577,15 @@
       // Store current camera ID
       document.getElementById('current-camera-id').value = cameraId;
       
+      // Determine camera type - if has UID, it's UBOX
+      const cameraType = camera.type || (camera.uid ? 'UBOX' : 'STANDARD');
+      const cameraLocation = camera.location || 'Bonnesante Factory';
+      
       // Populate camera info
-      document.getElementById('view-camera-name').textContent = camera.name || cameraId;
-      document.getElementById('view-camera-location').textContent = camera.location || 'Unknown';
-      document.getElementById('view-camera-type').textContent = camera.type || 'STANDARD';
-      document.getElementById('view-camera-uid').textContent = camera.uid || camera.ip || camera.rtspUrl || '-';
+      document.getElementById('view-camera-name').textContent = camera.name || 'GZ-SONY MAKE.BELIEVE';
+      document.getElementById('view-camera-location').textContent = cameraLocation;
+      document.getElementById('view-camera-type').textContent = cameraType;
+      document.getElementById('view-camera-uid').textContent = camera.uid || camera.ip || camera.rtspUrl || cameraId;
       document.getElementById('view-camera-recordings').textContent = camera.recordingCount || 0;
       
       // Settings checkboxes

@@ -57,14 +57,19 @@ class CameraManager extends EventEmitter {
       const cameras = result.rows || [];
       
       for (const row of cameras) {
+        // Determine type - if UID exists, it's UBOX
+        const cameraType = row.camera_type || (row.uid ? 'UBOX' : 'STANDARD');
+        const cameraLocation = row.location || 'Bonnesante Factory';
+        const cameraName = row.name || 'GZ-SONY MAKE.BELIEVE';
+        
         const camera = {
           id: row.id,
-          name: row.name,
-          location: row.location,
+          name: cameraName,
+          location: cameraLocation,
           rtspUrl: row.rtsp_url,
           onvifUrl: row.onvif_url,
           uid: row.uid,
-          type: row.camera_type,
+          type: cameraType,
           status: row.status || CameraStatus.OFFLINE,
           credentials: {
             username: row.username || 'admin',
@@ -77,7 +82,13 @@ class CameraManager extends EventEmitter {
         };
         
         this.cameras.set(camera.id, camera);
-        Logger.info('Loaded camera from database', { cameraId: camera.id, name: camera.name });
+        
+        // Update database if type/location was missing
+        if (!row.camera_type || !row.location) {
+          this._saveToDatabase(camera);
+        }
+        
+        Logger.info('Loaded camera from database', { cameraId: camera.id, name: camera.name, type: cameraType });
       }
       
       Logger.info(`Loaded ${cameras.length} cameras from database`);
