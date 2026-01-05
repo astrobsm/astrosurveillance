@@ -669,13 +669,16 @@
       <p>Use your device camera to scan the barcode/QR code on your GZ-SONY MAKE.BELIEVE camera.</p>
       
       <!-- Camera Video Feed -->
-      <div id="scanner-container" style="margin: 16px 0; border-radius: 12px; overflow: hidden; background: #000; position: relative;">
-        <video id="barcode-video" style="width: 100%; display: block;" autoplay playsinline muted></video>
-        <div id="scanner-line" style="position: absolute; top: 50%; left: 10%; width: 80%; height: 2px; background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: scanLine 2s infinite;"></div>
-        <div id="scanner-overlay" class="hidden" style="text-align: center; padding: 60px 20px; color: var(--text-muted); position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--surface-light);">
-          <i class="mdi mdi-camera-off" style="font-size: 48px;"></i>
-          <p style="margin-top: 12px;">Camera access not available</p>
-          <p style="font-size: 12px;">Please allow camera access or enter data manually below</p>
+      <div id="scanner-container" style="margin: 16px 0; border-radius: 12px; overflow: hidden; background: #000; position: relative; min-height: 200px;">
+        <video id="barcode-video" style="width: 100%; display: none;" autoplay playsinline muted></video>
+        <div id="scanner-line" style="position: absolute; top: 50%; left: 10%; width: 80%; height: 2px; background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: scanLine 2s infinite; display: none;"></div>
+        <div id="scanner-overlay" style="text-align: center; padding: 40px 20px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--surface-light);">
+          <i class="mdi mdi-camera" style="font-size: 48px; color: var(--accent);"></i>
+          <p style="margin-top: 12px; font-weight: bold;">Tap button below to start camera</p>
+          <button id="start-camera-btn" onclick="requestCameraAccess()" style="margin-top: 12px; padding: 12px 24px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer;">
+            <i class="mdi mdi-camera"></i> Start Camera
+          </button>
+          <p id="camera-error-msg" style="font-size: 12px; color: var(--danger); margin-top: 8px; display: none;"></p>
         </div>
       </div>
       
@@ -1545,15 +1548,69 @@
       document.getElementById('barcode-scanner-modal').classList.remove('hidden');
       document.getElementById('detected-data').classList.add('hidden');
       document.getElementById('barcode-manual-input').value = '';
+      document.getElementById('scanner-overlay').style.display = 'flex';
+      document.getElementById('barcode-video').style.display = 'none';
+      document.getElementById('scanner-line').style.display = 'none';
+      document.getElementById('camera-error-msg').style.display = 'none';
+      document.getElementById('start-camera-btn').style.display = 'inline-block';
       detectedBarcodeData = null;
-      speak('Barcode scanner opened. Position the camera barcode within the frame.', true);
-      startBarcodeScanner();
+      speak('Barcode scanner opened. Tap Start Camera to begin scanning.', true);
     }
     
     function closeBarcodeScannerModal() {
       document.getElementById('barcode-scanner-modal').classList.add('hidden');
       stopBarcodeScanner();
       detectedBarcodeData = null;
+    }
+    
+    async function requestCameraAccess() {
+      const btn = document.getElementById('start-camera-btn');
+      const errorMsg = document.getElementById('camera-error-msg');
+      
+      btn.innerHTML = '<i class="mdi mdi-loading mdi-spin"></i> Requesting access...';
+      btn.disabled = true;
+      errorMsg.style.display = 'none';
+      
+      try {
+        // Check if mediaDevices is available
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Camera API not supported in this browser');
+        }
+        
+        speak('Requesting camera access. Please allow when prompted.');
+        
+        // Request camera access
+        barcodeStream = await navigator.mediaDevices.getUserMedia({
+          video: { 
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        });
+        
+        // Camera access granted - start scanner
+        startBarcodeScanner();
+        
+      } catch (error) {
+        console.error('Camera access error:', error);
+        btn.innerHTML = '<i class="mdi mdi-camera"></i> Try Again';
+        btn.disabled = false;
+        
+        let errorText = 'Camera access denied.';
+        if (error.name === 'NotAllowedError') {
+          errorText = 'Camera access denied. Please allow camera in browser settings.';
+        } else if (error.name === 'NotFoundError') {
+          errorText = 'No camera found on this device.';
+        } else if (error.name === 'NotSupportedError' || error.message.includes('not supported')) {
+          errorText = 'Camera not supported. Use HTTPS or localhost.';
+        } else {
+          errorText = error.message || 'Failed to access camera.';
+        }
+        
+        errorMsg.textContent = errorText;
+        errorMsg.style.display = 'block';
+        speak(errorText);
+      }
     }
     
     async function startBarcodeScanner() {
@@ -1563,18 +1620,14 @@
       const scanLine = document.getElementById('scanner-line');
       
       try {
-        // Request camera access - prefer back camera for scanning
-        barcodeStream = await navigator.mediaDevices.getUserMedia({
-          video: { 
-            facingMode: { ideal: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
-        });
+        // Use existing stream from requestCameraAccess
+        if (!barcodeStream) {
+          throw new Error('No camera stream available');
+        }
         
         video.srcObject = barcodeStream;
         video.style.display = 'block';
-        overlay.classList.add('hidden');
+        overlay.style.display = 'none';
         scanLine.style.display = 'block';
         barcodeScanning = true;
         
@@ -1599,13 +1652,13 @@
         }
         
       } catch (error) {
-        console.log('Camera access error:', error);
+        console.log('Scanner error:', error);
         video.style.display = 'none';
-        overlay.classList.remove('hidden');
+        overlay.style.display = 'flex';
         scanLine.style.display = 'none';
-        status.textContent = 'Camera not available - enter data manually';
+        status.textContent = 'Camera error - enter data manually';
         document.getElementById('barcode-status').style.color = 'var(--warning)';
-        speak('Camera not available. Please enter camera information manually.');
+        speak('Camera error. Please enter camera information manually.');
       }
     }
     
