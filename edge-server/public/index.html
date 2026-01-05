@@ -817,12 +817,44 @@
       <div id="live-feed-container" style="background: #000; border-radius: 12px; overflow: hidden; position: relative; margin-bottom: 16px;">
         <video id="live-video-feed" style="width: 100%; min-height: 300px; display: block;" autoplay playsinline muted></video>
         <img id="live-snapshot-img" style="width: 100%; min-height: 300px; display: none; object-fit: contain;" alt="Camera Feed">
-        <div id="live-feed-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); color: var(--text-muted);">
-          <i class="mdi mdi-video-off" style="font-size: 64px;"></i>
-          <p id="live-feed-status" style="margin-top: 12px;">Connecting to camera...</p>
-          <button onclick="connectToLiveFeed()" style="margin-top: 12px; padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer;">
-            <i class="mdi mdi-refresh"></i> Retry Connection
-          </button>
+        <div id="live-feed-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.85); color: var(--text-muted); padding: 20px; text-align: center;">
+          <i class="mdi mdi-cctv" style="font-size: 48px; color: var(--accent);"></i>
+          <p id="live-feed-status" style="margin-top: 12px; font-size: 14px;">Connecting to camera...</p>
+          
+          <!-- UBOX Camera Instructions -->
+          <div id="ubox-instructions" class="hidden" style="margin-top: 16px; padding: 16px; background: var(--surface-light); border-radius: 12px; max-width: 350px; text-align: left;">
+            <div style="font-weight: bold; color: var(--accent); margin-bottom: 8px; text-align: center;">
+              <i class="mdi mdi-information"></i> UBOX Camera Detected
+            </div>
+            <p style="font-size: 12px; margin: 0 0 12px 0; color: var(--text-secondary);">
+              UBOX cameras use P2P technology for secure streaming. To view live feed:
+            </p>
+            <ol style="font-size: 12px; margin: 0; padding-left: 20px; color: var(--text-secondary);">
+              <li style="margin-bottom: 6px;">Open the <strong>UBOX</strong> app on your phone</li>
+              <li style="margin-bottom: 6px;">Add camera using UID: <code id="ubox-uid-display" style="background: var(--background); padding: 2px 6px; border-radius: 4px; font-size: 11px;">-</code></li>
+              <li style="margin-bottom: 6px;">View live stream in the app</li>
+            </ol>
+            <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; justify-content: center;">
+              <a href="https://play.google.com/store/apps/details?id=com.gzshkj.ubox" target="_blank" style="display: flex; align-items: center; gap: 4px; padding: 8px 12px; background: var(--accent); color: white; border-radius: 6px; text-decoration: none; font-size: 12px;">
+                <i class="mdi mdi-google-play"></i> Play Store
+              </a>
+              <a href="https://apps.apple.com/app/ubox-cam/id1441379209" target="_blank" style="display: flex; align-items: center; gap: 4px; padding: 8px 12px; background: #333; color: white; border-radius: 6px; text-decoration: none; font-size: 12px;">
+                <i class="mdi mdi-apple"></i> App Store
+              </a>
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; justify-content: center;">
+            <button onclick="connectToLiveFeed()" style="padding: 10px 16px; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px;">
+              <i class="mdi mdi-refresh"></i> Retry
+            </button>
+            <button onclick="startAutoRefresh()" id="btn-auto-refresh" style="padding: 10px 16px; background: var(--surface-light); color: var(--text-primary); border: none; border-radius: 8px; cursor: pointer; font-size: 13px;">
+              <i class="mdi mdi-autorenew"></i> Auto Refresh
+            </button>
+            <button onclick="copyUIDToClipboard()" style="padding: 10px 16px; background: var(--surface-light); color: var(--text-primary); border: none; border-radius: 8px; cursor: pointer; font-size: 13px;">
+              <i class="mdi mdi-content-copy"></i> Copy UID
+            </button>
+          </div>
         </div>
         
         <!-- Recording indicator -->
@@ -1566,6 +1598,7 @@
     let liveTimestampInterval = null;
     let isRecordingManual = false;
     let currentRecordingId = null;
+    let autoRefreshInterval = null;
     
     function openCameraView(cameraId) {
       const camera = window.camerasData ? window.camerasData[cameraId] : null;
@@ -1580,13 +1613,17 @@
       // Determine camera type - if has UID, it's UBOX
       const cameraType = camera.type || (camera.uid ? 'UBOX' : 'STANDARD');
       const cameraLocation = camera.location || 'Bonnesante Factory';
+      const cameraUID = camera.uid || camera.ip || camera.rtspUrl || cameraId;
       
       // Populate camera info
       document.getElementById('view-camera-name').textContent = camera.name || 'GZ-SONY MAKE.BELIEVE';
       document.getElementById('view-camera-location').textContent = cameraLocation;
       document.getElementById('view-camera-type').textContent = cameraType;
-      document.getElementById('view-camera-uid').textContent = camera.uid || camera.ip || camera.rtspUrl || cameraId;
+      document.getElementById('view-camera-uid').textContent = cameraUID;
       document.getElementById('view-camera-recordings').textContent = camera.recordingCount || 0;
+      
+      // Update UBOX UID display
+      document.getElementById('ubox-uid-display').textContent = cameraUID;
       
       // Settings checkboxes
       document.getElementById('setting-motion').checked = camera.motionEnabled !== false;
@@ -1597,7 +1634,15 @@
       document.getElementById('btn-stop-record').classList.add('hidden');
       document.getElementById('recording-indicator').classList.add('hidden');
       document.getElementById('camera-settings-panel').classList.add('hidden');
+      document.getElementById('ubox-instructions').classList.add('hidden');
+      document.getElementById('btn-auto-refresh').innerHTML = '<i class="mdi mdi-autorenew"></i> Auto Refresh';
       isRecordingManual = false;
+      
+      // Stop any existing auto refresh
+      if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+      }
       
       // Show modal
       document.getElementById('camera-view-modal').classList.remove('hidden');
@@ -1619,6 +1664,12 @@
       if (liveTimestampInterval) {
         clearInterval(liveTimestampInterval);
         liveTimestampInterval = null;
+      }
+      
+      // Stop auto refresh
+      if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
       }
       
       // Stop any live feed
@@ -1644,8 +1695,10 @@
       const cameraId = document.getElementById('current-camera-id').value;
       const overlay = document.getElementById('live-feed-overlay');
       const statusText = document.getElementById('live-feed-status');
+      const uboxInstructions = document.getElementById('ubox-instructions');
       
       statusText.textContent = 'Connecting to camera...';
+      uboxInstructions.classList.add('hidden');
       overlay.style.display = 'flex';
       
       try {
@@ -1662,9 +1715,81 @@
           throw new Error(data.message || 'No snapshot available');
         }
       } catch (error) {
-        statusText.textContent = 'Camera feed unavailable. UBOX cameras require P2P connection.';
+        // Show UBOX-specific instructions
+        const camera = window.camerasData ? window.camerasData[cameraId] : null;
+        const isUBOX = camera && (camera.uid || camera.type === 'UBOX');
+        
+        if (isUBOX) {
+          statusText.textContent = 'P2P connection required for live streaming';
+          uboxInstructions.classList.remove('hidden');
+        } else {
+          statusText.textContent = 'Camera feed unavailable. Check connection.';
+        }
         overlay.style.display = 'flex';
       }
+    }
+    
+    function startAutoRefresh() {
+      const btn = document.getElementById('btn-auto-refresh');
+      
+      if (autoRefreshInterval) {
+        // Stop auto refresh
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        btn.innerHTML = '<i class="mdi mdi-autorenew"></i> Auto Refresh';
+        btn.style.background = 'var(--surface-light)';
+        speak('Auto refresh stopped');
+      } else {
+        // Start auto refresh every 5 seconds
+        autoRefreshInterval = setInterval(() => {
+          refreshCameraSnapshot();
+        }, 5000);
+        btn.innerHTML = '<i class="mdi mdi-stop"></i> Stop Refresh';
+        btn.style.background = 'var(--accent)';
+        btn.style.color = 'white';
+        speak('Auto refresh started. Updating every 5 seconds.');
+        refreshCameraSnapshot(); // Immediate refresh
+      }
+    }
+    
+    async function refreshCameraSnapshot() {
+      const cameraId = document.getElementById('current-camera-id').value;
+      if (!cameraId) return;
+      
+      try {
+        const res = await fetch(API_BASE + '/cameras/' + cameraId + '/snapshot', {
+          method: 'POST'
+        });
+        const data = await res.json();
+        
+        if (data.code === 'SUCCESS' && data.data?.imageUrl) {
+          const img = document.getElementById('live-snapshot-img');
+          img.src = data.data.imageUrl + '?t=' + Date.now();
+          img.style.display = 'block';
+          document.getElementById('live-video-feed').style.display = 'none';
+          document.getElementById('live-feed-overlay').style.display = 'none';
+        }
+      } catch (error) {
+        console.log('Snapshot refresh failed:', error);
+      }
+    }
+    
+    function copyUIDToClipboard() {
+      const uid = document.getElementById('view-camera-uid').textContent;
+      navigator.clipboard.writeText(uid).then(() => {
+        speak('Camera UID copied to clipboard');
+        alert('UID copied: ' + uid);
+      }).catch(() => {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = uid;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        speak('Camera UID copied to clipboard');
+        alert('UID copied: ' + uid);
+      });
     }
     
     async function takeSnapshot() {
