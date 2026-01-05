@@ -79,15 +79,7 @@ const qrPairing = new QRPairing(cameraManager, cameraDiscovery);
 // Connect database to CameraManager for persistence
 cameraManager.setDatabase(db);
 
-// Load cameras from database on startup
-(async () => {
-  try {
-    await cameraManager.loadFromDatabase();
-    Logger.info('Cameras loaded from database');
-  } catch (error) {
-    Logger.warn('Failed to load cameras from database', { error: error.message });
-  }
-})();
+// Note: Cameras will be loaded from database in startServer() after DB is connected
 
 // Make modules available to routes
 app.locals.modules = {
@@ -278,6 +270,14 @@ async function startServer() {
       try {
         await db.initialize(config.database || {});
         Logger.info('Database connected');
+        
+        // Load cameras from database AFTER connection is established
+        try {
+          await cameraManager.loadFromDatabase();
+          Logger.info('Cameras loaded from database');
+        } catch (loadError) {
+          Logger.warn('Failed to load cameras from database', { error: loadError.message });
+        }
       } catch (dbError) {
         Logger.warn('Database connection failed, running without persistence', { error: dbError.message });
       }
