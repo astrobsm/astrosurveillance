@@ -76,6 +76,19 @@ const motionDetector = new MotionDetector(config.motionDetection);
 const recordingController = new RecordingController(config.recording, storageManager);
 const qrPairing = new QRPairing(cameraManager, cameraDiscovery);
 
+// Connect database to CameraManager for persistence
+cameraManager.setDatabase(db);
+
+// Load cameras from database on startup
+(async () => {
+  try {
+    await cameraManager.loadFromDatabase();
+    Logger.info('Cameras loaded from database');
+  } catch (error) {
+    Logger.warn('Failed to load cameras from database', { error: error.message });
+  }
+})();
+
 // Make modules available to routes
 app.locals.modules = {
   storageManager,

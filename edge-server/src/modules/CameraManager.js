@@ -28,7 +28,103 @@ class CameraManager extends EventEmitter {
     // Reconnection timers
     this.reconnectTimers = new Map();
     
+    // Database reference (will be set via setDatabase)
+    this.db = null;
+    
     Logger.info('CameraManager initialized', { maxCameras: this.config.maxCameras });
+  }
+  
+  /**
+   * Set database reference for persistence
+   * @param {Object} database - Database instance
+   */
+  setDatabase(database) {
+    this.db = database;
+    Logger.info('CameraManager database connected');
+  }
+  
+  /**
+   * Load cameras from database on startup
+   */
+  async loadFromDatabase() {
+    if (!this.db || !this.db.isConnected) {
+      Logger.warn('Database not available, skipping camera load');
+      return;
+    }
+    
+    try {
+      const result = await this.db.query('SELECT * FROM cameras');
+      const cameras = result.rows || [];
+      
+      for (const row of cameras) {
+        const camera = {
+          id: row.id,
+          name: row.name,
+          location: row.location,
+          rtspUrl: row.rtsp_url,
+          onvifUrl: row.onvif_url,
+          uid: row.uid,
+          type: row.camera_type,
+          status: row.status || CameraStatus.OFFLINE,
+          credentials: {
+            username: row.username || 'admin',
+            password: row.password_encrypted || 'admin'
+          },
+          alarmEnabled: row.alarm_enabled !== false,
+          motionEnabled: row.motion_enabled !== false,
+          registeredAt: row.created_at,
+          lastSeen: row.last_seen
+        };
+        
+        this.cameras.set(camera.id, camera);
+        Logger.info('Loaded camera from database', { cameraId: camera.id, name: camera.name });
+      }
+      
+      Logger.info(`Loaded ${cameras.length} cameras from database`);
+    } catch (error) {
+      Logger.error('Failed to load cameras from database', { error: error.message });
+    }
+  }
+  
+  /**
+   * Save camera to database
+   * @private
+   */
+  async _saveToDatabase(camera) {
+    if (!this.db || !this.db.isConnected) return;
+    
+    try {
+      await this.db.query(`
+        INSERT INTO cameras (id, name, location, rtsp_url, onvif_url, uid, camera_type, username, password_encrypted, status, alarm_enabled, motion_enabled)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ON CONFLICT (id) DO UPDATE SET
+          name = EXCLUDED.name,
+          location = EXCLUDED.location,
+          rtsp_url = EXCLUDED.rtsp_url,
+          onvif_url = EXCLUDED.onvif_url,
+          uid = EXCLUDED.uid,
+          camera_type = EXCLUDED.camera_type,
+          status = EXCLUDED.status,
+          updated_at = CURRENT_TIMESTAMP
+      `, [
+        camera.id,
+        camera.name,
+        camera.location,
+        camera.rtspUrl,
+        camera.onvifUrl,
+        camera.uid || null,
+        camera.type || 'STANDARD',
+        camera.credentials?.username || 'admin',
+        camera.credentials?.password || 'admin',
+        camera.status,
+        camera.alarmEnabled,
+        camera.motionEnabled
+      ]);
+      
+      Logger.info('Camera saved to database', { cameraId: camera.id });
+    } catch (error) {
+      Logger.error('Failed to save camera to database', { error: error.message, cameraId: camera.id });
+    }
   }
   
   /**
@@ -62,6 +158,9 @@ class CameraManager extends EventEmitter {
     };
     
     this.cameras.set(id, camera);
+    
+    // Save to database
+    this._saveToDatabase(camera);
     
     Logger.info('Camera registered', { cameraId: id, location });
     this.emit('cameraRegistered', camera);

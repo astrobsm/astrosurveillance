@@ -76,6 +76,8 @@ class Database {
         location VARCHAR(255),
         rtsp_url TEXT,
         onvif_url TEXT,
+        uid VARCHAR(100),
+        camera_type VARCHAR(50) DEFAULT 'STANDARD',
         username VARCHAR(100),
         password_encrypted TEXT,
         status VARCHAR(50) DEFAULT 'OFFLINE',
@@ -86,6 +88,13 @@ class Database {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+      
+      -- Add missing columns if table already exists
+      DO $$ BEGIN
+        ALTER TABLE cameras ADD COLUMN IF NOT EXISTS uid VARCHAR(100);
+        ALTER TABLE cameras ADD COLUMN IF NOT EXISTS camera_type VARCHAR(50) DEFAULT 'STANDARD';
+      EXCEPTION WHEN OTHERS THEN NULL;
+      END $$;
 
       -- Recordings table
       CREATE TABLE IF NOT EXISTS recordings (
