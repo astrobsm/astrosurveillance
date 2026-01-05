@@ -1042,12 +1042,13 @@
         
         // Cameras
         const camRes = await fetch(API_BASE + '/cameras');
-        const cameras = await camRes.json();
+        const camData = await camRes.json();
+        const cameras = camData.data?.cameras || camData.cameras || [];
         document.getElementById('stat-cameras').textContent = cameras.length || 0;
         document.getElementById('cameras-count').textContent = cameras.length + ' cameras';
         
+        const cameraList = document.getElementById('camera-list');
         if (cameras.length > 0) {
-          const cameraList = document.getElementById('camera-list');
           cameraList.innerHTML = cameras.map(cam => `
             <div class="camera-card">
               <div class="camera-preview">
@@ -1055,7 +1056,7 @@
               </div>
               <div class="camera-info">
                 <div class="camera-name">${cam.name || cam.id}</div>
-                <div class="camera-location">${cam.location || cam.ip || 'Unknown'}</div>
+                <div class="camera-location">${cam.location || cam.ip || cam.uid || 'Unknown'}</div>
                 <div class="camera-status ${cam.status === 'recording' ? 'recording' : 'online'}">
                   <div class="camera-status-dot"></div>
                   ${cam.status || 'Online'}
@@ -1063,6 +1064,8 @@
               </div>
             </div>
           `).join('');
+        } else {
+          cameraList.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);"><i class="mdi mdi-cctv" style="font-size: 32px;"></i><p>No cameras added yet</p></div>';
         }
         
         // Recordings
