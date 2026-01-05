@@ -931,6 +931,23 @@
             <span>Alarm Enabled</span>
             <input type="checkbox" id="setting-alarm" checked onchange="updateCameraSetting('alarmEnabled', this.checked)">
           </label>
+          
+          <!-- Local IP Configuration for Direct Streaming -->
+          <div style="border-top: 1px solid var(--surface); padding-top: 12px; margin-top: 8px;">
+            <h5 style="margin: 0 0 8px 0; color: var(--accent);"><i class="mdi mdi-lan"></i> Local Network Streaming</h5>
+            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
+              Enter camera's local IP to enable direct streaming (find in router or UBOX app settings)
+            </p>
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin-bottom: 8px;">
+              <input type="text" id="setting-local-ip" placeholder="192.168.1.xxx" style="padding: 10px; border-radius: 6px; border: 1px solid var(--surface); background: var(--background);">
+              <input type="text" id="setting-rtsp-port" placeholder="554" value="554" style="padding: 10px; border-radius: 6px; border: 1px solid var(--surface); background: var(--background);">
+            </div>
+            <button onclick="setLocalIpAndStream()" style="width: 100%; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer;">
+              <i class="mdi mdi-play-network"></i> Enable Direct Stream
+            </button>
+            <div id="local-stream-status" style="margin-top: 8px; font-size: 11px; color: var(--text-muted); display: none;"></div>
+          </div>
+          
           <div style="border-top: 1px solid var(--surface); padding-top: 12px; margin-top: 8px;">
             <button onclick="removeCurrentCamera()" style="width: 100%; padding: 12px; background: var(--danger); color: white; border: none; border-radius: 8px; cursor: pointer;">
               <i class="mdi mdi-delete"></i> Remove Camera
@@ -1790,6 +1807,109 @@
         speak('Camera UID copied to clipboard');
         alert('UID copied: ' + uid);
       });
+    }
+    
+    async function setLocalIpAndStream() {
+      const cameraId = document.getElementById('current-camera-id').value;
+      const localIp = document.getElementById('setting-local-ip').value.trim();
+      const rtspPort = document.getElementById('setting-rtsp-port').value.trim() || '554';
+      const statusDiv = document.getElementById('local-stream-status');
+      
+      if (!localIp) {
+        alert('Please enter the camera local IP address');
+        return;
+      }
+      
+      statusDiv.style.display = 'block';
+      statusDiv.innerHTML = '<i class="mdi mdi-loading mdi-spin"></i> Configuring...';
+      statusDiv.style.color = 'var(--accent)';
+      
+      try {
+        const res = await fetch(API_BASE + '/cameras/' + cameraId + '/set-local-ip', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            localIp: localIp,
+            rtspPort: parseInt(rtspPort)
+          })
+        });
+        const data = await res.json();
+        
+        if (data.code === 'SUCCESS') {
+          statusDiv.innerHTML = '<i class="mdi mdi-check"></i> Local IP configured! Trying to connect...';
+          statusDiv.style.color = 'var(--success)';
+          speak('Local IP configured. Attempting connection.');
+          
+          // Try to load a snapshot via proxy
+          setTimeout(() => {
+            tryLocalSnapshot(cameraId);
+          }, 1000);
+        } else {
+          throw new Error(data.message);
+        }
+      } catch (error) {
+        statusDiv.innerHTML = '<i class="mdi mdi-alert"></i> ' + error.message;
+        statusDiv.style.color = 'var(--danger)';
+        speak('Configuration failed');
+      }
+    }
+    
+    async function tryLocalSnapshot(cameraId) {
+      const statusDiv = document.getElementById('local-stream-status');
+      const overlay = document.getElementById('live-feed-overlay');
+      const snapshotImg = document.getElementById('live-snapshot-img');
+      
+      try {
+        statusDiv.innerHTML = '<i class="mdi mdi-loading mdi-spin"></i> Fetching snapshot from camera...';
+        
+        const res = await fetch(API_BASE + '/cameras/' + cameraId + '/proxy-snapshot');
+        
+        if (res.ok) {
+          const blob = await res.blob();
+          const imageUrl = URL.createObjectURL(blob);
+          
+          snapshotImg.src = imageUrl;
+          snapshotImg.style.display = 'block';
+          document.getElementById('live-video-feed').style.display = 'none';
+          overlay.style.display = 'none';
+          
+          statusDiv.innerHTML = '<i class="mdi mdi-check-circle"></i> Connected! Live snapshot working.';
+          statusDiv.style.color = 'var(--success)';
+          speak('Camera connected! Showing live snapshot.');
+          
+          // Start auto-refresh for pseudo-live feed
+          if (!autoRefreshInterval) {
+            startAutoRefreshLocal(cameraId);
+          }
+        } else {
+          const data = await res.json();
+          throw new Error(data.message || 'Could not fetch snapshot');
+        }
+      } catch (error) {
+        statusDiv.innerHTML = '<i class="mdi mdi-alert"></i> Could not connect: ' + error.message;
+        statusDiv.style.color = 'var(--warning)';
+        
+        statusDiv.innerHTML += '<br><small>Tips: Check camera is on same WiFi, try different ports (80, 8080)</small>';
+      }
+    }
+    
+    function startAutoRefreshLocal(cameraId) {
+      if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+      }
+      
+      autoRefreshInterval = setInterval(async () => {
+        try {
+          const res = await fetch(API_BASE + '/cameras/' + cameraId + '/proxy-snapshot');
+          if (res.ok) {
+            const blob = await res.blob();
+            const imageUrl = URL.createObjectURL(blob);
+            document.getElementById('live-snapshot-img').src = imageUrl;
+          }
+        } catch (e) {
+          // Silent fail
+        }
+      }, 2000); // Refresh every 2 seconds
     }
     
     async function takeSnapshot() {

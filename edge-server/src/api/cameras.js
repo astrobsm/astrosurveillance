@@ -213,6 +213,138 @@ router.post('/:id/connect', async (req, res) => {
 });
 
 /**
+ * POST /api/cameras/:id/set-local-ip
+ * Set the camera's local IP address for direct streaming
+ */
+router.post('/:id/set-local-ip', async (req, res) => {
+  const { cameraManager } = req.app.locals.modules;
+  const { id } = req.params;
+  const { localIp, rtspPort, httpPort, username, password } = req.body;
+  
+  if (!localIp) {
+    return res.status(400).json({
+      code: 'ERROR',
+      message: 'Local IP address is required'
+    });
+  }
+  
+  try {
+    const camera = cameraManager.getCamera(id);
+    if (!camera) {
+      return res.status(404).json({
+        code: 'NOT_FOUND',
+        message: 'Camera not found'
+      });
+    }
+    
+    const port = rtspPort || 554;
+    const user = username || 'admin';
+    const pass = password || camera.credentials?.password || 'admin';
+    
+    // Update camera with local network info
+    const updates = {
+      localIp: localIp,
+      rtspPort: port,
+      httpPort: httpPort || 80,
+      rtspUrl: `rtsp://${user}:${pass}@${localIp}:${port}/stream1`,
+      snapshotUrl: `http://${localIp}:${httpPort || 80}/snapshot.jpg`,
+      mjpegUrl: `http://${localIp}:${httpPort || 80}/video.mjpg`,
+      credentials: { username: user, password: pass }
+    };
+    
+    const updatedCamera = cameraManager.updateCamera(id, updates);
+    
+    res.json({
+      code: 'SUCCESS',
+      message: 'Local IP configured. Try the stream URLs.',
+      data: {
+        camera: updatedCamera,
+        streamUrls: {
+          rtsp: updates.rtspUrl,
+          snapshot: updates.snapshotUrl,
+          mjpeg: updates.mjpegUrl
+        }
+      }
+    });
+  } catch (err) {
+    res.status(400).json({
+      code: 'ERROR',
+      message: err.message
+    });
+  }
+});
+
+/**
+ * GET /api/cameras/:id/proxy-snapshot
+ * Proxy snapshot from camera's local network
+ */
+router.get('/:id/proxy-snapshot', async (req, res) => {
+  const { cameraManager } = req.app.locals.modules;
+  const { id } = req.params;
+  const http = require('http');
+  
+  try {
+    const camera = cameraManager.getCamera(id);
+    if (!camera) {
+      return res.status(404).json({ code: 'NOT_FOUND', message: 'Camera not found' });
+    }
+    
+    if (!camera.localIp) {
+      return res.status(400).json({ 
+        code: 'ERROR', 
+        message: 'Local IP not configured. Use /set-local-ip first.' 
+      });
+    }
+    
+    const port = camera.httpPort || 80;
+    const user = camera.credentials?.username || 'admin';
+    const pass = camera.credentials?.password || 'admin';
+    
+    // Try common snapshot URLs
+    const snapshotPaths = [
+      '/snapshot.jpg',
+      '/cgi-bin/snapshot.cgi',
+      '/image/jpeg.cgi',
+      '/jpg/image.jpg',
+      '/snap.jpg',
+      '/tmpfs/auto.jpg'
+    ];
+    
+    for (const path of snapshotPaths) {
+      try {
+        const url = `http://${camera.localIp}:${port}${path}`;
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64')
+          },
+          timeout: 5000
+        });
+        
+        if (response.ok) {
+          const buffer = await response.arrayBuffer();
+          res.set('Content-Type', 'image/jpeg');
+          res.set('Cache-Control', 'no-cache');
+          res.send(Buffer.from(buffer));
+          return;
+        }
+      } catch (e) {
+        // Try next path
+      }
+    }
+    
+    res.status(503).json({
+      code: 'ERROR',
+      message: 'Could not fetch snapshot from camera. Check local IP and credentials.'
+    });
+  } catch (err) {
+    res.status(500).json({
+      code: 'ERROR',
+      message: err.message
+    });
+  }
+});
+
+/**
  * POST /api/cameras/manual
  * Manually add a camera by IP address
  */
